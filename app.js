@@ -1206,6 +1206,7 @@
       }
     }
     if (list.length) chart.createOverlay(list);
+    window.__markerCount = list.length;
   }
 
   async function step(n) {
