@@ -1058,6 +1058,8 @@
     $('btnReplay').onclick = pickStartDate;
     $('rbPrev').onclick = () => step(-1);
     $('rbNext').onclick = () => step(1);
+    $('rbUp').onclick = () => step(-1);
+    $('rbDn').onclick = () => step(1);
     $('rbPlay').onclick = togglePlay;
     $('rbExit').onclick = () => exitReplay(false);
     $('rbJump').onclick = () => {
@@ -1100,13 +1102,29 @@
     const st = R();
     const p = st.bars[st.idx];
     const el = $('posCard');
-    if (!st.active) { el.innerHTML = '<span>空仓</span>'; $('tradebar').classList.add('hidden'); return; }
+    const chip = $('rbPosChip');
+    if (!st.active) {
+      el.innerHTML = '<span>空仓</span>';
+      if (chip) chip.textContent = '';
+      $('tradebar').classList.add('hidden');
+      return;
+    }
     $('tradebar').classList.remove('hidden');
+    const upnl = st.pos && p ? (p.close - st.pos.avg) * st.pos.qty * st.pos.side : 0;
+    if (isMobile()) {
+      el.innerHTML = '<span>权益 <b>' + fmtNum(equity(), 0) + '</b></span>';
+      if (chip) {
+        chip.textContent = st.pos
+          ? (st.pos.side > 0 ? '多' : '空') + ' ' + st.pos.qty + ' · ' + (upnl >= 0 ? '+' : '') + fmtNum(upnl, 2)
+          : '';
+      }
+      return;
+    }
+    if (chip) chip.textContent = '';
     if (!st.pos) {
       el.innerHTML = '<span>空仓</span><span>权益 <b>' + fmtNum(equity(), 2) + '</b></span>';
       return;
     }
-    const upnl = (p.close - st.pos.avg) * st.pos.qty * st.pos.side;
     el.innerHTML =
       '<span style="color:' + (st.pos.side > 0 ? 'var(--up)' : 'var(--down)') + '">' + (st.pos.side > 0 ? '多' : '空') + '</span>' +
       '<span>均价 <b>' + fmtPx(st.pos.avg) + '</b></span>' +
@@ -1316,6 +1334,7 @@
     const bar = $('replaybar');
     bar.classList.toggle('hidden', !on);
     $('tradebar').classList.toggle('hidden', !on);
+    $('rbArrows').classList.toggle('hidden', !on);
     if (on) { closeDrawers(); placeReplayBar(false); }
     applyUI();
   }
