@@ -299,15 +299,24 @@ body.focus-mode .right { display: none; }
   body.mobile-right-open .right { transform: none; }
   body.right-hidden .right { display: flex; }
 
-  .replaybar { max-width: calc(100vw - 16px); flex-wrap: wrap; gap: 6px; font-size: 12px; padding: 6px 8px; }
-  .replaybar .rbinfo { flex: 1 1 100%; margin: 0; font-size: 12px; }
-  .replaybar button, .replaybar select { padding: 5px 9px; font-size: 12px; }
+  .replaybar { max-width: calc(100vw - 16px); flex-wrap: nowrap; gap: 4px; font-size: 11px; padding: 4px 6px; overflow: hidden; }
+  .replaybar .rbtag { display: none; }
+  .replaybar .rbinfo { flex: 0 0 auto; max-width: 92px; margin: 0; font-size: 11px; overflow: hidden; text-overflow: ellipsis; }
+  .replaybar button, .replaybar select { padding: 5px 6px; font-size: 11px; }
   .replaybar .spacer { display: none; }
 
-  .tradebar { gap: 8px; padding: 8px; }
-  .tradebar .tbgroup button { padding: 6px 10px; font-size: 13px; }
-  label.tb input { width: 72px; }
-  .tbinfo { flex: 1 1 100%; margin-left: 0; font-size: 12px; justify-content: space-between; }
+  .tradebar { gap: 4px; padding: 6px; }
+  .tradebar > .tbgroup:nth-child(1) { order: 1; }
+  .tradebar > label.tb:nth-child(2) { order: 2; }
+  .tradebar > label.tb:nth-child(3) { display: none; }
+  .tradebar > .tbgroup:nth-child(5) { order: 3; }
+  .tradebar > .tbgroup.pct { order: 4; }
+  .tradebar > .tbinfo { order: 5; }
+  .tradebar .tbgroup button { padding: 5px 7px; font-size: 12px; }
+  label.tb { font-size: 10px; }
+  label.tb input { width: 56px; padding: 4px 5px; font-size: 12px; }
+  .tbgroup.pct button { padding: 4px 6px; font-size: 11px; }
+  .tbinfo { flex: 1 1 auto; margin-left: 0; font-size: 11px; gap: 8px; justify-content: flex-end; }
 
   .floatbar { bottom: 12px; right: 12px; }
   .pane { padding: 10px 10px 26px; }

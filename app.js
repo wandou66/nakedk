@@ -1118,10 +1118,13 @@
   function renderReplayInfo() {
     const st = R();
     const p = st.bars[st.idx];
-    $('rbInfo').textContent = st.active && p
-      ? fmtTime(p.timestamp) + ' · 窗口 ' + (st.idx + 1) + '/' + st.bars.length +
-        (st.hasMore ? ' · 前面还有' : ' · 已到最新')
-      : '—';
+    if (!st.active || !p) { $('rbInfo').textContent = '—'; return; }
+    if (isMobile()) {
+      $('rbInfo').textContent = fmtTime(p.timestamp) + ' ' + (st.idx + 1) + '/' + st.bars.length;
+      return;
+    }
+    $('rbInfo').textContent = fmtTime(p.timestamp) + ' · 窗口 ' + (st.idx + 1) + '/' + st.bars.length +
+      (st.hasMore ? ' · 前面还有' : ' · 已到最新');
   }
 
   function applySlice() {
@@ -1651,6 +1654,10 @@
     applyYAxisType();
     bindUI();
     applyUI();
+    if (isMobile()) {
+      $('rbJump').textContent = '跳';
+      $('rbExit').textContent = '✕';
+    }
 
     await loadWatchlist();
 
