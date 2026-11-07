@@ -1117,6 +1117,7 @@
     const p = st.bars[st.idx];
     const el = $('posCard');
     const chip = $('rbPosChip');
+    renderReplayInfo();
     if (!st.active) {
       el.innerHTML = '<span>空仓</span>';
       if (chip) chip.textContent = '';
