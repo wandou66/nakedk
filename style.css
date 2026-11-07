@@ -267,17 +267,17 @@ body.focus-mode .right { display: none; }
 @media (max-width: 900px) {
   body { touch-action: manipulation; }
 
-  .top { height: auto; flex-wrap: wrap; gap: 6px; padding: 6px 8px; }
-  .logo { font-size: 12px; }
+  .top { height: auto; flex-wrap: wrap; gap: 4px; padding: 4px 6px; padding-top: calc(4px + env(safe-area-inset-top, 0px)); }
+  .logo { font-size: 11px; }
   .logo em { display: none; }
-  .searchwrap { width: 128px; flex: 0 0 auto; }
+  .searchwrap { width: 120px; flex: 0 0 auto; }
   .cur { min-width: 70px; flex: 1 1 auto; }
   .cur .nm { font-size: 12px; }
   .cur .mt { font-size: 9px; }
   .tfbar { order: 5; flex: 1 1 100%; justify-content: flex-start; overflow-x: auto; white-space: nowrap; }
-  .tfbar button { padding: 5px 9px; }
+  .tfbar button { padding: 4px 8px; }
   .acts { gap: 2px; }
-  .acts .ghost, .acts .icon { padding: 4px 7px; font-size: 12px; }
+  .acts .ghost, .acts .icon { padding: 3px 6px; font-size: 11px; }
 
   .rail { width: 38px; flex: 0 0 38px; }
   .rail button { width: 34px; height: 34px; font-size: 14px; }
@@ -299,24 +299,31 @@ body.focus-mode .right { display: none; }
   body.mobile-right-open .right { transform: none; }
   body.right-hidden .right { display: flex; }
 
-  .replaybar { max-width: calc(100vw - 12px); flex-wrap: nowrap; gap: 3px; font-size: 11px; padding: 4px 5px; overflow: hidden; }
+  .replaybar {
+    position: static !important; left: auto !important; top: auto !important;
+    width: auto; max-width: none; margin: 0;
+    border-radius: 0; border-left: none; border-right: none;
+    box-shadow: none; background: var(--panel);
+    flex-wrap: nowrap; gap: 4px; font-size: 11px; padding: 4px 6px; overflow: hidden;
+    cursor: default;
+  }
   .replaybar .rbtag { display: none; }
-  .replaybar .rbinfo { flex: 0 0 auto; max-width: 76px; margin: 0; font-size: 11px; overflow: hidden; text-overflow: ellipsis; }
-  .replaybar button, .replaybar select { padding: 5px 5px; font-size: 11px; white-space: nowrap; }
+  .replaybar .rbinfo { flex: 1 1 auto; min-width: 0; max-width: none; margin: 0; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .replaybar button, .replaybar select { padding: 4px 6px; font-size: 11px; white-space: nowrap; }
   .replaybar .spacer { display: none; }
 
-  .tradebar { gap: 4px; padding: 6px; }
+  .tradebar { gap: 4px; padding: 5px 6px; padding-bottom: calc(5px + env(safe-area-inset-bottom, 0px)); }
   .tradebar > .tbgroup:nth-child(1) { order: 1; }
   .tradebar > label.tb:nth-child(2) { order: 2; }
   .tradebar > label.tb:nth-child(3) { display: none; }
   .tradebar > .tbgroup:nth-child(5) { order: 3; }
   .tradebar > .tbgroup.pct { order: 4; }
   .tradebar > .tbinfo { order: 5; }
-  .tradebar button { white-space: nowrap; padding: 5px 7px; font-size: 12px; }
+  .tradebar button { white-space: nowrap; padding: 4px 6px; font-size: 11px; }
   label.tb { font-size: 10px; }
-  label.tb input { width: 56px; padding: 4px 5px; font-size: 12px; }
-  .tbgroup.pct button { padding: 4px 6px; font-size: 11px; }
-  .tbinfo { flex: 1 1 auto; margin-left: 0; font-size: 11px; gap: 8px; justify-content: flex-end; }
+  label.tb input { width: 48px; padding: 3px 4px; font-size: 11px; }
+  .tbgroup.pct button { padding: 3px 5px; font-size: 10px; }
+  .tbinfo { flex: 1 1 auto; margin-left: 0; font-size: 10px; gap: 6px; justify-content: flex-end; }
 
   .floatbar { bottom: 12px; right: 12px; }
   .pane { padding: 10px 10px 26px; }

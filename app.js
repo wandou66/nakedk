@@ -1284,6 +1284,7 @@
 
   function bindReplayDrag() {
     const bar = $('replaybar');
+    if (isMobile()) return; // 手机上回放条固定在底部，不拖拽
     let drag = null;
     bar.addEventListener('pointerdown', (e) => {
       if (e.target.closest('button,select,input,option')) return;
