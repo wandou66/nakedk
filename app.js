@@ -224,16 +224,15 @@
     needDefaultPointFigure: false,
     needDefaultXAxisFigure: false,
     needDefaultYAxisFigure: false,
-    createPointFigures({ coordinates, bounding, overlay }) {
+    createPointFigures({ coordinates, overlay }) {
       const p = coordinates[0];
       if (!p || p.x == null) return [];
       const st = (overlay.styles && overlay.styles.line) || {};
       const color = st.color || '#f0b000';
-      return [{
-        type: 'line',
-        attrs: { coordinates: [{ x: 0, y: p.y }, { x: bounding.width, y: p.y }] },
-        styles: { color, size: 1, style: 'dashed' },
-      }];
+      return [
+        { type: 'line', attrs: { coordinates: [{ x: p.x - 14, y: p.y }, { x: p.x + 14, y: p.y }] }, styles: { color, size: 2 } },
+        { type: 'line', attrs: { coordinates: [{ x: p.x, y: p.y - 5 }, { x: p.x, y: p.y + 5 }] }, styles: { color, size: 1.5 } },
+      ];
     },
   });
 
@@ -652,6 +651,19 @@
 
   function toggleFocus() {
     S.ui.focus = !S.ui.focus;
+    if (S.ui.focus) {
+      // 专注模式：把左上角的 OHLC 图例也藏起来，只留 K 线
+      chart.setStyles({
+        candle: {
+          tooltip: {
+            rect: { color: 'transparent', borderColor: 'transparent' },
+            text: { color: 'transparent' },
+          },
+        },
+      });
+    } else {
+      applyTheme(S.theme);
+    }
     applyUI();
   }
 
@@ -1053,8 +1065,10 @@
     $('btnReplay').onclick = pickStartDate;
     $('rbPrev').onclick = () => step(-1);
     $('rbNext').onclick = () => step(1);
-    $('rbUp').onclick = () => step(-1);
-    $('rbDn').onclick = () => step(1);
+    const upBtn = $('rbUp');
+    if (upBtn) upBtn.onclick = () => step(-1);
+    const dnBtn = $('rbDn');
+    if (dnBtn) dnBtn.onclick = () => step(1);
     $('rpQtyLabel').onclick = () => {
       S.unit = S.unit === 'U' ? 'coin' : 'U';
       try { localStorage.setItem('nk.unit', S.unit); } catch (_) { /* 忽略 */ }
@@ -1140,12 +1154,14 @@
     const st = R();
     const p = st.bars[st.idx];
     if (!st.active || !p) { $('rbInfo').textContent = '—'; return; }
+    let extra = '';
+    if (st.pos) extra = ' · ' + (st.pos.side > 0 ? '多' : '空') + ' ' + (+st.pos.qty.toFixed(4));
     if (isMobile()) {
-      $('rbInfo').textContent = fmtTime(p.timestamp) + ' ' + (st.idx + 1) + '/' + st.bars.length;
+      $('rbInfo').textContent = fmtTime(p.timestamp) + ' ' + (st.idx + 1) + '/' + st.bars.length + extra;
       return;
     }
     $('rbInfo').textContent = fmtTime(p.timestamp) + ' · 窗口 ' + (st.idx + 1) + '/' + st.bars.length +
-      (st.hasMore ? ' · 前面还有' : ' · 已到最新');
+      (st.hasMore ? ' · 前面还有' : ' · 已到最新') + extra;
   }
 
   function applySlice() {
@@ -1336,7 +1352,8 @@
     const bar = $('replaybar');
     bar.classList.toggle('hidden', !on);
     $('tradebar').classList.toggle('hidden', !on);
-    $('rbArrows').classList.toggle('hidden', !on);
+    const ra = $('rbArrows');
+    if (ra) ra.classList.toggle('hidden', !on);
     if (on) { closeDrawers(); placeReplayBar(false); }
     applyUI();
   }
