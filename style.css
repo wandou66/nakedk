@@ -299,10 +299,10 @@ body.focus-mode .right { display: none; }
   body.mobile-right-open .right { transform: none; }
   body.right-hidden .right { display: flex; }
 
-  .replaybar { max-width: calc(100vw - 16px); flex-wrap: nowrap; gap: 4px; font-size: 11px; padding: 4px 6px; overflow: hidden; }
+  .replaybar { max-width: calc(100vw - 12px); flex-wrap: nowrap; gap: 3px; font-size: 11px; padding: 4px 5px; overflow: hidden; }
   .replaybar .rbtag { display: none; }
-  .replaybar .rbinfo { flex: 0 0 auto; max-width: 92px; margin: 0; font-size: 11px; overflow: hidden; text-overflow: ellipsis; }
-  .replaybar button, .replaybar select { padding: 5px 6px; font-size: 11px; }
+  .replaybar .rbinfo { flex: 0 0 auto; max-width: 76px; margin: 0; font-size: 11px; overflow: hidden; text-overflow: ellipsis; }
+  .replaybar button, .replaybar select { padding: 5px 5px; font-size: 11px; white-space: nowrap; }
   .replaybar .spacer { display: none; }
 
   .tradebar { gap: 4px; padding: 6px; }
@@ -312,7 +312,7 @@ body.focus-mode .right { display: none; }
   .tradebar > .tbgroup:nth-child(5) { order: 3; }
   .tradebar > .tbgroup.pct { order: 4; }
   .tradebar > .tbinfo { order: 5; }
-  .tradebar .tbgroup button { padding: 5px 7px; font-size: 12px; }
+  .tradebar button { white-space: nowrap; padding: 5px 7px; font-size: 12px; }
   label.tb { font-size: 10px; }
   label.tb input { width: 56px; padding: 4px 5px; font-size: 12px; }
   .tbgroup.pct button { padding: 4px 6px; font-size: 11px; }
