@@ -230,8 +230,8 @@
       const st = (overlay.styles && overlay.styles.line) || {};
       const color = st.color || '#f0b000';
       return [
-        { type: 'line', attrs: { coordinates: [{ x: p.x - 14, y: p.y }, { x: p.x + 14, y: p.y }] }, styles: { color, size: 2 } },
-        { type: 'line', attrs: { coordinates: [{ x: p.x, y: p.y - 5 }, { x: p.x, y: p.y + 5 }] }, styles: { color, size: 1.5 } },
+        { type: 'line', attrs: { coordinates: [{ x: p.x - 20, y: p.y }, { x: p.x + 20, y: p.y }] }, styles: { color, size: 3 } },
+        { type: 'line', attrs: { coordinates: [{ x: p.x, y: p.y - 6 }, { x: p.x, y: p.y + 6 }] }, styles: { color, size: 2 } },
       ];
     },
   });
