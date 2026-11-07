@@ -7,7 +7,7 @@
   window.__chart = chart;
   const S = {
     id: null, src: 'binance-perp', symbol: null, coin: '', label: '', tf: '15m',
-    bars: [], prec: 4, scale: 'linear', scaleBase: 1, theme: 'dark',
+    bars: [], prec: 4, scale: 'linear', theme: 'dark', unit: 'U',
     trades: [], watchlist: { groups: [] }, drawings: [], tool: null, selectedId: null,
     note: '', noteTimer: null, openGroups: {},
     ui: { left: false, right: false, focus: false },
@@ -224,20 +224,15 @@
     needDefaultPointFigure: false,
     needDefaultXAxisFigure: false,
     needDefaultYAxisFigure: false,
-    createPointFigures({ coordinates, overlay }) {
+    createPointFigures({ coordinates, bounding, overlay }) {
       const p = coordinates[0];
       if (!p || p.x == null) return [];
-      const text = String(overlay.extendData || '平');
-      const st = (overlay.styles && overlay.styles.text) || {};
-      const bg = st.backgroundColor || '#26a69a';
+      const st = (overlay.styles && overlay.styles.line) || {};
+      const color = st.color || '#f0b000';
       return [{
-        type: 'text',
-        attrs: { x: p.x + 8, y: p.y, text, align: 'left', baseline: 'middle' },
-        styles: {
-          color: '#ffffff', size: 11, family: 'Microsoft YaHei, sans-serif',
-          backgroundColor: bg,
-          paddingLeft: 6, paddingRight: 6, paddingTop: 3, paddingBottom: 3,
-        },
+        type: 'line',
+        attrs: { coordinates: [{ x: 0, y: p.y }, { x: bounding.width, y: p.y }] },
+        styles: { color, size: 1, style: 'dashed' },
       }];
     },
   });
@@ -685,7 +680,7 @@
     // 手机：双击（两次轻点）同样进入/退出专注
     let lastTap = 0, lastX = 0, lastY = 0;
     $('chart').addEventListener('touchend', (e) => {
-      if (S.tool || !e.changedTouches || !e.changedTouches.length) return;
+      if (S.tool || !e.changedTouches || e.changedTouches.length !== 1) return;
       const t = e.changedTouches[0];
       const now = Date.now();
       if (now - lastTap < 320 && Math.abs(t.clientX - lastX) < 32 && Math.abs(t.clientY - lastY) < 32) {
@@ -1060,6 +1055,11 @@
     $('rbNext').onclick = () => step(1);
     $('rbUp').onclick = () => step(-1);
     $('rbDn').onclick = () => step(1);
+    $('rpQtyLabel').onclick = () => {
+      S.unit = S.unit === 'U' ? 'coin' : 'U';
+      try { localStorage.setItem('nk.unit', S.unit); } catch (_) { /* 忽略 */ }
+      updateUnitLabel();
+    };
     $('rbPlay').onclick = togglePlay;
     $('rbExit').onclick = () => exitReplay(false);
     $('rbJump').onclick = () => {
@@ -1111,8 +1111,10 @@
     }
     $('tradebar').classList.remove('hidden');
     const upnl = st.pos && p ? (p.close - st.pos.avg) * st.pos.qty * st.pos.side : 0;
+    const total = equity() - st.capital;
     if (isMobile()) {
-      el.innerHTML = '<span>权益 <b>' + fmtNum(equity(), 0) + '</b></span>';
+      el.innerHTML = '<span>盈亏 <b class="' + (total >= 0 ? 'pos' : 'neg') + '">' + (total >= 0 ? '+' : '') + fmtNum(total, 2) + '</b></span>' +
+        '<span>权益 <b>' + fmtNum(equity(), 0) + '</b></span>';
       if (chip) {
         chip.textContent = st.pos
           ? (st.pos.side > 0 ? '多' : '空') + ' ' + st.pos.qty + ' · ' + (upnl >= 0 ? '+' : '') + fmtNum(upnl, 2)
@@ -1130,6 +1132,7 @@
       '<span>均价 <b>' + fmtPx(st.pos.avg) + '</b></span>' +
       '<span>数量 <b>' + st.pos.qty + '</b></span>' +
       '<span>浮盈 <b class="' + (upnl >= 0 ? 'pos' : 'neg') + '">' + (upnl >= 0 ? '+' : '') + fmtNum(upnl, 2) + '</b></span>' +
+      '<span>盈亏 <b class="' + (total >= 0 ? 'pos' : 'neg') + '">' + (total >= 0 ? '+' : '') + fmtNum(total, 2) + '</b></span>' +
       '<span>权益 <b>' + fmtNum(equity(), 2) + '</b></span>';
   }
 
@@ -1181,8 +1184,7 @@
           name: 'closeTag',
           groupId: 'rp', lock: true,
           points: [{ timestamp: o.t, value: o.price }],
-          extendData: '平 ' + (pnl >= 0 ? '+' : '') + pnl.toFixed(2),
-          styles: { text: { backgroundColor: pnl >= 0 ? '#26a69a' : '#ef5350' } },
+          styles: { line: { color: pnl >= 0 ? '#26a69a' : '#ef5350', size: 1, style: 'dashed' } },
         });
       }
     }
@@ -1458,29 +1460,53 @@
     toast('已保存 ' + list.length + ' 笔到交易笔记');
   }
 
+  function toQty(amount, price) {
+    const lev = Number($('rpLev').value) || 1;
+    if (S.unit === 'U') return (amount * lev) / price;
+    return amount;
+  }
+
+  function updateUnitLabel() {
+    const el = $('rpQtyLabel');
+    if (!el) return;
+    el.textContent = S.unit === 'U' ? '金额(U)' : '数量(币)';
+    const inp = $('rpQty');
+    inp.step = S.unit === 'U' ? '1' : 'any';
+    inp.value = S.unit === 'U' ? '100' : '0.1';
+  }
+
   function placeOrder(kind) {
     const st = R();
     if (!st.active) return toast('先开始回放', true);
     const bar = st.bars[st.idx];
     const price = bar.close;
     const side = currentSide();
-    const qty = Number($('rpQty').value);
-    if (!qty || qty <= 0) return toast('数量要大于 0', true);
+    const amount = Number($('rpQty').value);
     const lev = Number($('rpLev').value) || null;
 
     if (kind === 'close' || kind === 'flip') {
       if (!st.pos) { if (kind === 'close') return toast('当前没有持仓', true); }
       else {
         const p = st.pos;
-        const pnl = (price - p.avg) * p.qty * p.side;
-        st.closed.push({ side: p.side > 0 ? 'long' : 'short', qty: p.qty, entryTime: p.entryTime, entryPrice: p.avg, exitTime: bar.timestamp, exitPrice: price, pnl });
-        st.orders.push({ t: bar.timestamp, price, side: p.side, qty: p.qty, kind: 'close', pnl });
-        st.pos = null;
+        let qtyToClose = amount > 0 ? toQty(amount, price) : p.qty;
+        if (!(qtyToClose > 0)) qtyToClose = p.qty;
+        const partial = qtyToClose < p.qty - 1e-9;
+        const q = partial ? qtyToClose : p.qty;
+        const pnl = (price - p.avg) * q * p.side;
+        st.closed.push({ side: p.side > 0 ? 'long' : 'short', qty: q, entryTime: p.entryTime, entryPrice: p.avg, exitTime: bar.timestamp, exitPrice: price, pnl });
+        st.orders.push({ t: bar.timestamp, price, side: p.side, qty: q, kind: 'close', pnl });
+        if (partial) {
+          st.pos.qty = p.qty - q;
+        } else {
+          st.pos = null;
+        }
         if (kind === 'close') { renderPos(); renderReplayMarkers(); return; }
       }
     }
 
     if (kind === 'open' || kind === 'flip') {
+      if (!amount || amount <= 0) return toast('金额要大于 0', true);
+      const qty = toQty(amount, price);
       if (st.pos) {
         if (st.pos.side === side) {
           st.pos.avg = (st.pos.avg * st.pos.qty + price * qty) / (st.pos.qty + qty);
@@ -1678,6 +1704,11 @@
       $('rbJump').textContent = '跳';
       $('rbExit').textContent = '✕';
     }
+    try {
+      const u = localStorage.getItem('nk.unit');
+      if (u === 'coin' || u === 'U') S.unit = u;
+    } catch (_) { /* 忽略 */ }
+    updateUnitLabel();
 
     await loadWatchlist();
 

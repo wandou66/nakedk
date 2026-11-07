@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>裸K复盘 · 在线版</title>
 <meta name="theme-color" content="#000000">
 <meta name="mobile-web-app-capable" content="yes">
@@ -11,7 +11,7 @@
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="icon" href="./icon-192.png">
 <link rel="apple-touch-icon" href="./icon-192.png">
-<link rel="stylesheet" href="./style.css?v=13">
+<link rel="stylesheet" href="./style.css?v=14">
 </head>
 <body data-theme="dark">
 
@@ -82,7 +82,7 @@
         <button id="rpLong" class="sidebtn long active">做多</button>
         <button id="rpShort" class="sidebtn short">做空</button>
       </div>
-      <label class="tb">数量<input id="rpQty" type="number" step="any" value="0.1"></label>
+      <label class="tb"><span id="rpQtyLabel" class="unit-toggle" title="点击切换 币 / U">金额(U)</span><input id="rpQty" type="number" step="any" value="100"></label>
       <label class="tb">杠杆<input id="rpLev" type="number" step="any" value="10"></label>
       <div class="tbgroup pct">
         <button data-pct="0.25">25%</button>
@@ -157,7 +157,7 @@
 
 <script src="./vendor/klinecharts.min.js"></script>
 <script src="./backend.js"></script>
-<script src="./app.js?v=13"></script>
+<script src="./app.js?v=14"></script>
 <script>
   if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) {
     window.addEventListener('load', function () {
