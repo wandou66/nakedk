@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>裸K复盘 · 在线版</title>
+<link rel="stylesheet" href="./style.css?v=9">
+</head>
+<body data-theme="dark">
+
+<header class="top">
+  <div class="logo">裸K<em>REPLAY</em></div>
+
+  <div class="searchwrap">
+    <input id="q" placeholder="BTC / ORDI / ETH…" autocomplete="off" spellcheck="false">
+    <div id="results" class="dropdown hidden"></div>
+  </div>
+
+  <div class="cur">
+    <div class="nm" id="curName">—</div>
+    <div class="mt" id="curMeta">搜索一个品种</div>
+  </div>
+
+  <div class="tfbar" id="tfbar"></div>
+
+  <select id="scaleSel" class="sel" title="价格坐标">
+    <option value="linear">线性</option>
+    <option value="log">对数</option>
+    <option value="pct">百分比</option>
+  </select>
+
+  <div class="acts">
+    <button id="btnReplay" class="ghost">回放</button>
+    <button id="btnFav" class="ghost" title="显示/隐藏收藏栏">收藏</button>
+    <button id="btnPanel" class="ghost" title="显示/隐藏交易记录">交易</button>
+    <button id="btnTheme" class="icon" title="明暗主题">☀</button>
+    <button id="btnStar" class="icon" title="加入自选">☆</button>
+    <button id="btnLibrary" class="ghost">笔记库</button>
+    <button id="btnBackup" class="ghost">备份</button>
+  </div>
+</header>
+
+<div id="floatbar" class="floatbar hidden"></div>
+
+<div class="main">
+  <aside class="rail" id="drawbar"></aside>
+
+  <aside class="left" id="leftbar">
+    <div class="sidehead"><span>自选</span><button id="btnNewGroup" class="mini">＋</button></div>
+    <div id="groups" class="groups"></div>
+  </aside>
+
+  <section class="center">
+    <div id="chart"></div>
+
+    <div class="replaybar hidden" id="replaybar">
+      <span class="rbtag">回放</span>
+      <span class="rbinfo" id="rbInfo">—</span>
+      <button id="rbPrev" title="上一根">◀</button>
+      <button id="rbNext" title="下一根">▶</button>
+      <button id="rbPlay">播放</button>
+      <select id="rbSpeed" class="sel">
+        <option value="600">慢速</option>
+        <option value="300" selected>正常</option>
+        <option value="120">快速</option>
+        <option value="40">极快</option>
+      </select>
+      <button id="rbJump">跳转日期</button>
+      <span class="spacer"></span>
+      <button id="rbExit" class="danger">退出回放</button>
+    </div>
+
+    <div class="tradebar hidden" id="tradebar">
+      <div class="tbgroup">
+        <button id="rpLong" class="sidebtn long active">做多</button>
+        <button id="rpShort" class="sidebtn short">做空</button>
+      </div>
+      <label class="tb">数量<input id="rpQty" type="number" step="any" value="0.1"></label>
+      <label class="tb">杠杆<input id="rpLev" type="number" step="any" value="10"></label>
+      <div class="tbgroup pct">
+        <button data-pct="0.25">25%</button>
+        <button data-pct="0.5">50%</button>
+        <button data-pct="0.75">75%</button>
+        <button data-pct="1">100%</button>
+      </div>
+      <div class="tbgroup">
+        <button id="rpOpen" class="primary">开仓</button>
+        <button id="rpClose">平仓</button>
+        <button id="rpFlip">反手</button>
+      </div>
+      <div class="tbinfo" id="posCard">空仓</div>
+    </div>
+  </section>
+
+  <aside class="right">
+    <div class="tabs">
+      <button data-tab="trades" class="active">交易</button>
+      <button data-tab="note">笔记</button>
+    </div>
+
+    <div class="pane active" id="pane-trades">
+      <div class="stats" id="tradeStats"></div>
+      <div class="row">
+        <button id="btnAddTrade" class="primary">＋ 手工记录</button>
+        <button id="btnImport">导入交割</button>
+        <button id="btnExportMd">导出 MD</button>
+      </div>
+      <form id="tradeForm" class="card hidden">
+        <div class="grid2">
+          <label>方向
+            <select id="tSide"><option value="long">做多</option><option value="short">做空</option></select>
+          </label>
+          <label>数量 <input type="number" step="any" id="tQty"></label>
+          <label>开仓时间 <input type="datetime-local" id="tIn" step="1"></label>
+          <label>开仓价 <input type="number" step="any" id="tInPx"></label>
+          <label>平仓时间 <input type="datetime-local" id="tOut" step="1"></label>
+          <label>平仓价 <input type="number" step="any" id="tOutPx"></label>
+          <label>杠杆 <input type="number" step="any" id="tLev" placeholder="可选"></label>
+          <label>手续费 <input type="number" step="any" id="tFee" value="0"></label>
+        </div>
+        <label>备注 <input type="text" id="tNote" placeholder="一句话说明"></label>
+        <div class="row"><button type="submit" class="primary">保存</button><button type="button" id="btnCancelTrade">取消</button></div>
+      </form>
+      <div class="list" id="tradeList"></div>
+    </div>
+
+    <div class="pane" id="pane-note">
+      <div class="notehead">
+        <span id="noteTitle">本图笔记</span>
+        <span class="saved" id="noteStatus"></span>
+      </div>
+      <textarea id="noteText" placeholder="写下这张图的分析：结构、位置、计划、当时怎么想的…（自动保存）"></textarea>
+      <div class="drawlist" id="drawList"></div>
+    </div>
+  </aside>
+</div>
+
+<div id="toast" class="toast hidden"></div>
+<div id="backdrop" class="backdrop hidden"></div>
+<div id="loading" class="loading hidden"><div class="spin"></div><span>加载中…</span></div>
+<div id="modal" class="modal hidden"><div class="modal-box" id="modalBox"></div></div>
+
+<script src="./vendor/klinecharts.min.js"></script>
+<script src="./backend.js"></script>
+<script src="./app.js?v=9"></script>
+</body>
+</html>
