@@ -138,7 +138,7 @@
       needDefaultPointFigure: true,
       needDefaultXAxisFigure: false,
       needDefaultYAxisFigure: false,
-      createPointFigures({ coordinates, overlay }) {
+      createPointFigures({ coordinates, bounding, overlay }) {
         const p = coordinates[0];
         if (!p || p.x == null) return [];
         const st = (overlay.styles && overlay.styles.polygon) || {};
@@ -151,9 +151,10 @@
         ];
         const label = overlay.extendData;
         if (label) {
+          const lx = Math.min(Math.max(18, p.x), Math.max(18, bounding.width - 18));
           figures.push({
             type: 'text',
-            attrs: { x: p.x, y: tailY + dir * 3, text: String(label), align: 'center', baseline: dir > 0 ? 'top' : 'bottom' },
+            attrs: { x: lx, y: tailY + dir * 3, text: String(label), align: 'center', baseline: dir > 0 ? 'top' : 'bottom' },
             styles: {
               color, size: 10, family: 'Microsoft YaHei, sans-serif',
               backgroundColor: 'rgba(0,0,0,.6)',
@@ -237,7 +238,7 @@
     needDefaultPointFigure: false,
     needDefaultXAxisFigure: false,
     needDefaultYAxisFigure: false,
-    createPointFigures({ coordinates, overlay }) {
+    createPointFigures({ coordinates, bounding, overlay }) {
       const p = coordinates[0];
       if (!p || p.x == null) return [];
       const st = (overlay.styles && overlay.styles.line) || {};
@@ -248,9 +249,11 @@
       ];
       const label = overlay.extendData;
       if (label) {
+        const right = p.x + 24;
+        const fitsRight = right < bounding.width - 70;
         figures.push({
           type: 'text',
-          attrs: { x: p.x + 24, y: p.y, text: String(label), align: 'left', baseline: 'middle' },
+          attrs: { x: fitsRight ? right : p.x - 24, y: p.y, text: String(label), align: fitsRight ? 'left' : 'right', baseline: 'middle' },
           styles: {
             color, size: 10, family: 'Microsoft YaHei, sans-serif',
             backgroundColor: 'rgba(0,0,0,.6)',
