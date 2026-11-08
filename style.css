@@ -276,6 +276,15 @@ body.focus-mode .right { display: none; }
 .floatbar button { font-size: 12px; padding: 3px 9px; background: var(--panel); }
 .floatbar .focus-exit { background: var(--accent); border-color: var(--accent); color: #fff; }
 
+/* 中等宽度：收紧底部栏，避免挤压 */
+@media (min-width: 1025px) and (max-width: 1360px) {
+  .tradebar { gap: 8px; }
+  .tbgroup button { padding: 4px 9px; font-size: 12px; }
+  .tbinfo { font-size: 11px; gap: 10px; }
+  .replaybar { font-size: 12px; }
+  .replaybar button, .replaybar select { font-size: 12px; padding: 3px 8px; }
+}
+
 /* ------------------------------ 手机 / 窄屏 ------------------------------ */
 .backdrop {
   position: fixed; inset: 0; background: rgba(0, 0, 0, .45); z-index: 80;

@@ -1163,17 +1163,18 @@
     const st = R();
     if (!st.pos || !bar) return;
     const p = st.pos;
-    const lev = p.lev || Number($('rpLev').value) || 1;
-    const margin = (p.qty * p.avg) / lev;
+    const realized = st.closed.reduce((s, t) => s + t.pnl, 0);
+    const base = st.capital + realized; // 全仓：账户权益兜底
     const upnl = (bar.close - p.avg) * p.qty * p.side;
-    if (upnl <= -margin + 1e-9) {
+    if (base + upnl <= 0) {
+      const loss = -base;
       st.closed.push({
         side: p.side > 0 ? 'long' : 'short', qty: p.qty, entryTime: p.entryTime, entryPrice: p.avg,
-        exitTime: bar.timestamp, exitPrice: bar.close, pnl: -margin, liquidated: true,
+        exitTime: bar.timestamp, exitPrice: bar.close, pnl: loss, liquidated: true,
       });
-      st.orders.push({ t: bar.timestamp, price: bar.close, side: p.side, qty: p.qty, kind: 'close', pnl: -margin });
+      st.orders.push({ t: bar.timestamp, price: bar.close, side: p.side, qty: p.qty, kind: 'close', pnl: loss });
       st.pos = null;
-      toast('爆仓：保证金 ' + fmtNum(margin, 2) + ' U 亏光', true);
+      toast('爆仓（全仓）：账户权益归零', true);
     }
   }
 
@@ -1554,7 +1555,7 @@
   function updateUnitLabel() {
     const el = $('rpQtyLabel');
     if (!el) return;
-    el.textContent = S.unit === 'U' ? '金额(U)' : '数量(币)';
+    el.textContent = S.unit === 'U' ? '保证金(U)' : '数量(币)';
     const inp = $('rpQty');
     inp.step = S.unit === 'U' ? '1' : 'any';
     inp.value = S.unit === 'U' ? '100' : '0.1';
@@ -1590,8 +1591,11 @@
     }
 
     if (kind === 'open' || kind === 'flip') {
-      if (!amount || amount <= 0) return toast('金额要大于 0', true);
+      if (!amount || amount <= 0) return toast('保证金要大于 0', true);
       const qty = toQty(amount, price);
+      const need = (qty * price) / (lev || 1);
+      const eqNow = equity();
+      if (need > eqNow + 1e-6) return toast('保证金不足：可用 ' + fmtNum(eqNow, 2) + ' U', true);
       if (st.pos) {
         if (st.pos.side === side) {
           st.pos.avg = (st.pos.avg * st.pos.qty + price * qty) / (st.pos.qty + qty);
