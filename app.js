@@ -707,13 +707,17 @@
       saveUI(); applyUI();
     };
     $('backdrop').onclick = closeDrawers;
-    $('focusNext').onclick = () => step(1);
+    $('focusNext').onclick = () => {
+      const b = $('focusNext');
+      if (b._lp) { b._lp = false; return; }
+      step(1);
+    };
     // 长按前进键 = 播放/暂停
     (function () {
       const btn = $('focusNext');
       let t = null;
       btn.addEventListener('pointerdown', () => {
-        t = setTimeout(() => { t = null; togglePlay(); }, 550);
+        t = setTimeout(() => { t = null; btn._lp = true; togglePlay(); }, 550);
       });
       ['pointerup', 'pointerleave', 'pointercancel'].forEach((ev) =>
         btn.addEventListener(ev, () => { if (t) { clearTimeout(t); t = null; } })
