@@ -55,8 +55,8 @@
 
     try {
       const [info, tick] = await Promise.all([
-        j('https://fapi.binance.com/fapi/v1/exchangeInfo'),
-        j('https://fapi.binance.com/fapi/v1/ticker/24hr').catch(() => []),
+        j('https://fapi.binance.com/fapi/v1/exchangeInfo', 30000),
+        j('https://fapi.binance.com/fapi/v1/ticker/24hr', 6000).catch(() => []),
       ]);
       (tick || []).forEach((t) => { vol[t.symbol] = parseFloat(t.quoteVolume) || 0; });
       (info.symbols || []).forEach((s) => {
@@ -66,7 +66,7 @@
     } catch (_) { /* 忽略 */ }
 
     try {
-      const info = await j('https://api.binance.com/api/v3/exchangeInfo');
+      const info = await j('https://api.binance.com/api/v3/exchangeInfo', 30000);
       (info.symbols || []).forEach((s) => {
         if (s.quoteAsset !== 'USDT' || s.status !== 'TRADING') return;
         items.push({ id: 'binance-spot:' + s.symbol, src: 'binance-spot', ex: 'binance', mkt: 'spot', symbol: s.symbol, coin: s.baseAsset, label: s.baseAsset + ' 现货 · 币安', vol: 0 });
