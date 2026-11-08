@@ -1658,14 +1658,18 @@
     if (kind === 'open') {
       if (!amount || amount <= 0) return toast('开仓金额要大于 0', true);
       const qty = toQty(amount, price);
-      const need = (qty * price) / (lev || 1);
+      const offsetQty = st.pos && st.pos.side !== side ? Math.min(st.pos.qty, qty) : 0;
+      const remainQty = qty - offsetQty;
+      const need = (remainQty * price) / (lev || 1);
       const eqNow = equity();
-      if (need > eqNow + 1e-6) return toast('保证金不足：可用 ' + fmtNum(eqNow, 2) + ' U', true);
+      if (remainQty > 0 && need > eqNow + 1e-6) {
+        return toast('保证金不足：可用 ' + fmtNum(eqNow, 2) + ' U', true);
+      }
 
       let remain = qty;
       // 反向开仓 = 先减仓（净持仓）
-      if (st.pos && st.pos.side !== side) {
-        const q = Math.min(st.pos.qty, remain);
+      if (offsetQty > 0) {
+        const q = offsetQty;
         const pnl = (price - st.pos.avg) * q * st.pos.side;
         st.closed.push({ side: st.pos.side > 0 ? 'long' : 'short', qty: q, entryTime: st.pos.entryTime, entryPrice: st.pos.avg, exitTime: bar.timestamp, exitPrice: price, pnl });
         st.orders.push({ t: bar.timestamp, price, side: st.pos.side, qty: q, kind: 'close', pnl });
