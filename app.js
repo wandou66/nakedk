@@ -1045,7 +1045,7 @@
     return parseInt(m[1], 10) * ({ m: 1, h: 60, d: 1440, w: 10080 }[m[2]] || 1);
   }
   function windowSize() {
-    return S.src.startsWith('okx') ? 1200 : 3000;
+    return S.src.startsWith('okx') ? 2400 : 6000;
   }
 
   async function fetchWindow(startTs, count) {
@@ -1071,7 +1071,8 @@
     const st = R();
     const tfm = tfMinutes(S.tf);
     const size = windowSize();
-    const start = anchorTs - 300 * tfm * 60000;
+    const back = size === 2400 ? 1000 : 2000;
+    const start = anchorTs - back * tfm * 60000;
     const j = await fetchWindow(start, size);
     st.bars = j.bars || [];
     st.hasMore = !!j.hasMore;
@@ -1134,7 +1135,21 @@
 
   function bindReplay() {
     $('btnReplay').onclick = pickStartDate;
-    $('rbPrev').onclick = () => step(-1);
+    $('rbPrev').onclick = () => {
+      const b = $('rbPrev');
+      if (b._lp) { b._lp = false; return; }
+      step(-1);
+    };
+    (function () {
+      const btn = $('rbPrev');
+      let t = null;
+      btn.addEventListener('pointerdown', () => {
+        t = setTimeout(() => { t = null; btn._lp = true; step(-100); }, 550);
+      });
+      ['pointerup', 'pointerleave', 'pointercancel'].forEach((ev) =>
+        btn.addEventListener(ev, () => { if (t) { clearTimeout(t); t = null; } })
+      );
+    })();
     $('rbNext').onclick = () => step(1);
     const upBtn = $('rbUp');
     if (upBtn) upBtn.onclick = () => step(-1);
