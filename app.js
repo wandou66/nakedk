@@ -639,7 +639,6 @@
     const fb = $('floatbar');
     fb.classList.toggle('hidden', !S.ui.focus);
     if (S.ui.focus) {
-      fb.style.bottom = S.replay.active ? '68px' : '10px';
       fb.innerHTML = '<button class="focus-exit" id="fbExitFocus">退出专注</button>';
       const exit = $('fbExitFocus');
       if (exit) exit.onclick = () => toggleFocus();
