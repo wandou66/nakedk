@@ -187,21 +187,26 @@
 
   async function okxRange(src, symbol, tf, startTs, count) {
     const bar = OKX_BAR[tf] || '1m';
+    const tfMs = parseTF(tf) * 60000;
     const out = [];
-    let before = Math.max(0, Math.floor(startTs)) - 1;
+    let after = Math.max(1, Math.floor(startTs)) + count * tfMs;
     let guard = 0;
-    while (out.length < count && guard < 60) {
+    while (out.length < count && guard < 80) {
       guard++;
-      const r = await j('https://www.okx.com/api/v5/market/history-candles?instId=' + encodeURIComponent(symbol) + '&bar=' + bar + '&before=' + before + '&limit=100');
+      const r = await j('https://www.okx.com/api/v5/market/history-candles?instId=' + encodeURIComponent(symbol) + '&bar=' + bar + '&after=' + after + '&limit=100');
       if (!r || r.code !== '0' || !r.data || !r.data.length) break;
-      const rows = r.data.map((x) => ({ timestamp: +x[0], open: +x[1], high: +x[2], low: +x[3], close: +x[4], volume: +(x[7] || x[5] || 0) })).sort((a, b) => a.timestamp - b.timestamp);
+      const rows = r.data
+        .map((x) => ({ timestamp: +x[0], open: +x[1], high: +x[2], low: +x[3], close: +x[4], volume: +(x[7] || x[5] || 0) }))
+        .sort((a, b) => a.timestamp - b.timestamp);
       for (const b of rows) out.push(b);
-      before = rows[rows.length - 1].timestamp + 1;
-      if (rows.length < 100) break;
+      after = rows[0].timestamp;
+      if (rows[0].timestamp <= startTs) break;
     }
     const seen = new Set();
     const bars = [];
-    for (const b of out) { if (!seen.has(b.timestamp)) { seen.add(b.timestamp); bars.push(b); } }
+    for (const b of out) {
+      if (b.timestamp >= startTs && !seen.has(b.timestamp)) { seen.add(b.timestamp); bars.push(b); }
+    }
     bars.sort((a, b) => a.timestamp - b.timestamp);
     return bars.slice(0, count);
   }

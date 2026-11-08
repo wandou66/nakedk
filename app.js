@@ -272,6 +272,10 @@
           const j = await api('/api/catalog?q=' + encodeURIComponent(kw));
           searchItems = j.items || [];
           searchIdx = -1;
+          if (searchItems.length && !searchItems.some((it) => it.src.startsWith('binance')) && !S.warnedBnb) {
+            S.warnedBnb = true;
+            toast('币安接口连不上（可能需要代理），当前只显示 OKX 品种', true);
+          }
           renderResults();
         } catch (e) { toast('搜索失败: ' + e.message, true); }
       }, 200);
@@ -640,6 +644,8 @@
       const exit = $('fbExitFocus');
       if (exit) exit.onclick = () => toggleFocus();
     }
+    const fn = $('focusNext');
+    if (fn) fn.classList.toggle('hidden', !(S.ui.focus && S.replay.active));
     setTimeout(() => chart.resize(), 20);
   }
 
@@ -681,6 +687,7 @@
       saveUI(); applyUI();
     };
     $('backdrop').onclick = closeDrawers;
+    $('focusNext').onclick = () => step(1);
 
     // 双击图表空白处 → 专注看 K；再双击或 Esc 退出
     $('chart').addEventListener('dblclick', (e) => {
