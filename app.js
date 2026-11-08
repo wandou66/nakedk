@@ -145,10 +145,23 @@
         const color = st.color || (dir > 0 ? '#2962ff' : '#f23645');
         const baseY = p.y + dir * 20;
         const tailY = baseY + dir * 12;
-        return [
+        const figures = [
           { type: 'line', attrs: { coordinates: [{ x: p.x, y: baseY }, { x: p.x, y: tailY }] }, styles: { color, size: 1.5 } },
           { type: 'polygon', attrs: { coordinates: [{ x: p.x, y: p.y }, { x: p.x - 5.5, y: baseY }, { x: p.x + 5.5, y: baseY }] }, styles: { color } },
         ];
+        const label = overlay.extendData;
+        if (label) {
+          figures.push({
+            type: 'text',
+            attrs: { x: p.x, y: tailY + dir * 3, text: String(label), align: 'center', baseline: dir > 0 ? 'top' : 'bottom' },
+            styles: {
+              color, size: 10, family: 'Microsoft YaHei, sans-serif',
+              backgroundColor: 'rgba(0,0,0,.6)',
+              paddingLeft: 3, paddingRight: 3, paddingTop: 1, paddingBottom: 1,
+            },
+          });
+        }
+        return figures;
       },
     };
   }
@@ -1211,7 +1224,7 @@
     el.innerHTML =
       '<span style="color:' + (st.pos.side > 0 ? 'var(--up)' : 'var(--down)') + '">' + (st.pos.side > 0 ? '多' : '空') + '</span>' +
       '<span>均价 <b>' + fmtPx(st.pos.avg) + '</b></span>' +
-      '<span>数量 <b>' + (+st.pos.qty.toFixed(6)) + '</b></span>' +
+      '<span>保证金 <b>' + fmtNum((st.pos.qty * st.pos.avg) / (st.pos.lev || 1), 0) + ' U</b></span>' +
       '<span>浮盈 <b class="' + (upnl >= 0 ? 'pos' : 'neg') + '">' + (upnl >= 0 ? '+' : '') + fmtNum(upnl, 2) + '</b></span>' +
       '<span>盈亏 <b class="' + (total >= 0 ? 'pos' : 'neg') + '">' + (total >= 0 ? '+' : '') + fmtNum(total, 2) + '</b></span>' +
       '<span>权益 <b>' + fmtNum(equity(), 2) + '</b></span>';
@@ -1222,7 +1235,10 @@
     const p = st.bars[st.idx];
     if (!st.active || !p) { $('rbInfo').textContent = '—'; return; }
     let extra = '';
-    if (st.pos) extra = ' · ' + (st.pos.side > 0 ? '多' : '空') + ' ' + (+st.pos.qty.toFixed(4));
+    if (st.pos) {
+      const m = (st.pos.qty * st.pos.avg) / (st.pos.lev || 1);
+      extra = ' · ' + (st.pos.side > 0 ? '多' : '空') + ' ' + fmtNum(m, 0) + 'U';
+    }
     if (isMobile()) {
       $('rbInfo').textContent = fmtTime(p.timestamp) + ' ' + (st.idx + 1) + '/' + st.bars.length + extra;
       return;
@@ -1255,10 +1271,12 @@
       if (o.kind === 'open') {
         const up = o.side > 0;
         const color = up ? '#2962ff' : '#f23645';
+        const margin = (o.qty * o.price) / (o.lev || 1);
         list.push({
           name: up ? 'arrowUp' : 'arrowDown',
           groupId: 'rp', lock: true,
           points: [{ timestamp: o.t, value: up ? bar.low : bar.high }],
+          extendData: fmtNum(margin, 0) + 'U',
           styles: { polygon: { color }, line: { color, size: 1.5 } },
         });
       } else {
