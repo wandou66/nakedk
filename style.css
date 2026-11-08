@@ -348,7 +348,7 @@ body.focus-mode .right { display: none; }
   .tbgroup.pct button { padding: 3px 5px; font-size: 10px; }
   .tbinfo { flex: 1 1 auto; margin-left: 0; font-size: 9px; gap: 4px; justify-content: flex-end; }
 
-  .floatbar { bottom: 12px; right: 12px; }
+  .floatbar { right: 12px; top: calc(8px + env(safe-area-inset-top, 0px)); bottom: auto; }
   .pane { padding: 10px 10px 26px; }
   #noteText { min-height: 34vh; }
   .modal-box { width: 92vw; }
