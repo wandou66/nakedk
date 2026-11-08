@@ -153,11 +153,11 @@ body[data-theme="light"] .replaybar { background: rgba(255,255,255,.97); }
 .rb-arrows { display: none; }
 
 .focus-next {
-  position: fixed; right: 12px; bottom: calc(58px + env(safe-area-inset-bottom, 0px)); z-index: 66;
+  position: fixed; right: 28px; bottom: calc(58px + env(safe-area-inset-bottom, 0px)); z-index: 66;
   width: 50px; height: 50px; border-radius: 50%; padding: 0;
   background: rgba(41, 98, 255, .72); border: 1px solid rgba(255, 255, 255, .18); color: #fff;
   font-size: 16px; display: flex; align-items: center; justify-content: center;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, .4); opacity: .9;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .4); opacity: .9; cursor: move;
 }
 .focus-next.hidden { display: none; }
 .focus-next:active { opacity: 1; background: rgba(41, 98, 255, .95); }
@@ -360,4 +360,24 @@ body.focus-mode .right { display: none; }
   .pane { padding: 10px 10px 26px; }
   #noteText { min-height: 34vh; }
   .modal-box { width: 92vw; }
+}
+
+/* landscape: compact trade bar with leverage and pct */
+@media (min-width: 601px) and (max-width: 1024px) {
+  .tradebar { gap: 6px; padding: 4px 8px; flex-wrap: nowrap; }
+  .tradebar > label.tb { display: flex; }
+  .tradebar > .tbgroup { display: flex; }
+  .tradebar > .tbgroup:nth-child(1) { order: 1; }
+  .tradebar > label.tb:nth-child(2) { order: 2; }
+  .tradebar > label.tb:nth-child(3) { order: 3; }
+  .tradebar > .tbgroup.pct { order: 4; display: flex; }
+  .tradebar > .tbgroup:nth-child(5) { order: 5; }
+  .tradebar > .tbinfo { order: 6; }
+  label.tb input { width: 62px; padding: 3px 5px; font-size: 11px; }
+  .tradebar button { padding: 4px 7px; font-size: 11px; }
+  .tbgroup.pct button { padding: 2px 5px; font-size: 10px; }
+  .tbinfo { font-size: 11px; gap: 8px; margin-left: auto; }
+}
+@media (max-width: 600px) {
+  .tbinfo .pv { display: none; }
 }

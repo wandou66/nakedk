@@ -753,12 +753,72 @@
       const btn = $('focusNext');
       let t = null;
       btn.addEventListener('pointerdown', () => {
-        t = setTimeout(() => { t = null; btn._lp = true; togglePlay(); }, 550);
+        t = setTimeout(() => {
+          t = null;
+          if (btn._dragMoved) return;
+          btn._lp = true;
+          togglePlay();
+        }, 550);
       });
       ['pointerup', 'pointerleave', 'pointercancel'].forEach((ev) =>
         btn.addEventListener(ev, () => { if (t) { clearTimeout(t); t = null; } })
       );
     })();
+
+    // 前进键可拖动
+    (function () {
+      const btn = $('focusNext');
+      let drag = null;
+      let moved = false;
+      btn.addEventListener('pointerdown', (e) => {
+        const r = btn.getBoundingClientRect();
+        drag = { id: e.pointerId, dx: e.clientX - r.left, dy: e.clientY - r.top, sx: e.clientX, sy: e.clientY };
+        moved = false;
+        btn._dragMoved = false;
+        try { btn.setPointerCapture(e.pointerId); } catch (_) { /* 忽略 */ }
+      });
+      btn.addEventListener('pointermove', (e) => {
+        if (!drag || e.pointerId !== drag.id) return;
+        if (!moved && Math.abs(e.clientX - drag.sx) + Math.abs(e.clientY - drag.sy) < 8) return;
+        moved = true;
+        btn._dragMoved = true;
+        const w = btn.offsetWidth || 50;
+        const h = btn.offsetHeight || 50;
+        const left = Math.min(Math.max(4, e.clientX - drag.dx), window.innerWidth - w - 4);
+        const top = Math.min(Math.max(4, e.clientY - drag.dy), window.innerHeight - h - 4);
+        btn.style.left = left + 'px';
+        btn.style.top = top + 'px';
+        btn.style.right = 'auto';
+        btn.style.bottom = 'auto';
+      });
+      const end = () => {
+        if (!drag) return;
+        if (moved) {
+          btn._lp = true;
+          try {
+            localStorage.setItem('nk.fnPos', JSON.stringify({
+              left: parseFloat(btn.style.left),
+              top: parseFloat(btn.style.top),
+            }));
+          } catch (_) { /* 忽略 */ }
+        }
+        drag = null;
+        moved = false;
+      };
+      btn.addEventListener('pointerup', end);
+      btn.addEventListener('pointercancel', end);
+    })();
+
+    try {
+      const pos = JSON.parse(localStorage.getItem('nk.fnPos') || 'null');
+      if (pos && isFinite(pos.left) && isFinite(pos.top)) {
+        const btn = $('focusNext');
+        btn.style.left = Math.max(4, pos.left) + 'px';
+        btn.style.top = Math.max(4, pos.top) + 'px';
+        btn.style.right = 'auto';
+        btn.style.bottom = 'auto';
+      }
+    } catch (_) { /* 忽略 */ }
 
     // 双击图表空白处 → 专注看 K；再双击或 Esc 退出
     $('chart').addEventListener('dblclick', (e) => {
@@ -1258,7 +1318,8 @@
     if (isMobile()) {
       const notional = st.pos ? st.pos.qty * p.close : 0;
       el.innerHTML = '<span>持仓 <b>' + fmtShort(notional) + '</b></span>' +
-        '<span>盈亏 <b class="' + (total >= 0 ? 'pos' : 'neg') + '">' + (total >= 0 ? '+' : '') + fmtNum(total, 2) + '</b></span>';
+        '<span>盈亏 <b class="' + (total >= 0 ? 'pos' : 'neg') + '">' + (total >= 0 ? '+' : '') + fmtNum(total, 2) + '</b></span>' +
+        '<span class="pv">权益 <b>' + fmtShort(equity()) + '</b></span>';
       if (chip) {
         chip.textContent = st.pos
           ? (st.pos.side > 0 ? '多' : '空') + ' ' + st.pos.qty + ' · ' + (upnl >= 0 ? '+' : '') + fmtNum(upnl, 2)
