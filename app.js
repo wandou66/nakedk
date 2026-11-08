@@ -38,7 +38,7 @@
     return data;
   }
   const uid = () => Math.random().toString(36).slice(2, 10);
-  const isMobile = () => window.matchMedia('(max-width: 900px)').matches;
+  const isMobile = () => window.matchMedia('(max-width: 1024px)').matches;
 
   function closeDrawers() {
     document.body.classList.remove('mobile-left-open', 'mobile-right-open');
@@ -1132,7 +1132,12 @@
         if (!price) return;
         const eq = equity();
         const lev = Number($('rpLev').value) || 1;
-        $('rpQty').value = Math.max(0, Math.floor((eq * Number(b.dataset.pct) * lev / price) * 1e6) / 1e6);
+        const pct = Number(b.dataset.pct);
+        if (S.unit === 'U') {
+          $('rpQty').value = Math.max(0, Math.round(eq * pct));
+        } else {
+          $('rpQty').value = Math.max(0, Math.floor((eq * pct * lev / price) * 1e6) / 1e6);
+        }
       };
     });
     $('rpOpen').onclick = () => placeOrder('open');
@@ -1152,6 +1157,24 @@
     let eq = st.capital + st.closed.reduce((s, t) => s + t.pnl, 0);
     if (st.pos && p) eq += (p.close - st.pos.avg) * st.pos.qty * st.pos.side;
     return eq;
+  }
+
+  function checkLiquidation(bar) {
+    const st = R();
+    if (!st.pos || !bar) return;
+    const p = st.pos;
+    const lev = p.lev || Number($('rpLev').value) || 1;
+    const margin = (p.qty * p.avg) / lev;
+    const upnl = (bar.close - p.avg) * p.qty * p.side;
+    if (upnl <= -margin + 1e-9) {
+      st.closed.push({
+        side: p.side > 0 ? 'long' : 'short', qty: p.qty, entryTime: p.entryTime, entryPrice: p.avg,
+        exitTime: bar.timestamp, exitPrice: bar.close, pnl: -margin, liquidated: true,
+      });
+      st.orders.push({ t: bar.timestamp, price: bar.close, side: p.side, qty: p.qty, kind: 'close', pnl: -margin });
+      st.pos = null;
+      toast('爆仓：保证金 ' + fmtNum(margin, 2) + ' U 亏光', true);
+    }
   }
 
   function renderPos() {
@@ -1187,7 +1210,7 @@
     el.innerHTML =
       '<span style="color:' + (st.pos.side > 0 ? 'var(--up)' : 'var(--down)') + '">' + (st.pos.side > 0 ? '多' : '空') + '</span>' +
       '<span>均价 <b>' + fmtPx(st.pos.avg) + '</b></span>' +
-      '<span>数量 <b>' + st.pos.qty + '</b></span>' +
+      '<span>数量 <b>' + (+st.pos.qty.toFixed(6)) + '</b></span>' +
       '<span>浮盈 <b class="' + (upnl >= 0 ? 'pos' : 'neg') + '">' + (upnl >= 0 ? '+' : '') + fmtNum(upnl, 2) + '</b></span>' +
       '<span>盈亏 <b class="' + (total >= 0 ? 'pos' : 'neg') + '">' + (total >= 0 ? '+' : '') + fmtNum(total, 2) + '</b></span>' +
       '<span>权益 <b>' + fmtNum(equity(), 2) + '</b></span>';
@@ -1263,6 +1286,7 @@
     if (forward) chart.updateData(transformBar(st.bars[st.idx]));
     else applySlice();
     chart.scrollToDataIndex(st.idx, 0);
+    checkLiquidation(st.bars[st.idx]);
     renderReplayInfo(); renderPos();
   }
 
@@ -1572,9 +1596,10 @@
         if (st.pos.side === side) {
           st.pos.avg = (st.pos.avg * st.pos.qty + price * qty) / (st.pos.qty + qty);
           st.pos.qty += qty;
+          st.pos.lev = lev || st.pos.lev;
         }
       } else {
-        st.pos = { side, qty, avg: price, entryTime: bar.timestamp };
+        st.pos = { side, qty, avg: price, entryTime: bar.timestamp, lev };
       }
       st.orders.push({ t: bar.timestamp, side, qty, price, kind: 'open', lev });
     }
