@@ -56,6 +56,13 @@
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const fmtPx = (v) => (v == null || !isFinite(v) ? '—' : Number(v).toFixed(S.prec));
   const fmtNum = (v, d) => (v == null || !isFinite(v) ? '—' : Number(v).toFixed(d == null ? 2 : d));
+  const fmtShort = (v) => {
+    if (v == null || !isFinite(v)) return '—';
+    const a = Math.abs(v);
+    if (a >= 1000000) return (v / 10000).toFixed(0) + '万';
+    if (a >= 10000) return (v / 10000).toFixed(1) + '万';
+    return Math.round(v).toString();
+  };
   const fmtTime = (ts) => new Date(ts).toLocaleString('zh-CN', { timeZone: 'UTC', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false });
   const tsToInput = (ts) => new Date(ts).toISOString().slice(0, 19);
   const inputToTs = (s) => (s ? new Date(s + 'Z').getTime() : null);
@@ -1198,7 +1205,6 @@
     });
     $('rpOpen').onclick = () => placeOrder('open');
     $('rpClose').onclick = () => placeOrder('close');
-    $('rpFlip').onclick = () => placeOrder('flip');
   }
 
   function setSide(side) {
@@ -1250,8 +1256,9 @@
     const upnl = st.pos && p ? (p.close - st.pos.avg) * st.pos.qty * st.pos.side : 0;
     const total = equity() - st.capital;
     if (isMobile()) {
-      el.innerHTML = '<span>盈亏 <b class="' + (total >= 0 ? 'pos' : 'neg') + '">' + (total >= 0 ? '+' : '') + fmtNum(total, 2) + '</b></span>' +
-        '<span>权益 <b>' + fmtNum(equity(), 0) + '</b></span>';
+      const notional = st.pos ? st.pos.qty * p.close : 0;
+      el.innerHTML = '<span>持仓 <b>' + fmtShort(notional) + '</b></span>' +
+        '<span>盈亏 <b class="' + (total >= 0 ? 'pos' : 'neg') + '">' + (total >= 0 ? '+' : '') + fmtNum(total, 2) + '</b></span>';
       if (chip) {
         chip.textContent = st.pos
           ? (st.pos.side > 0 ? '多' : '空') + ' ' + st.pos.qty + ' · ' + (upnl >= 0 ? '+' : '') + fmtNum(upnl, 2)
@@ -1631,42 +1638,52 @@
     const amount = Number($('rpQty').value);
     const lev = Number($('rpLev').value) || null;
 
-    if (kind === 'close' || kind === 'flip') {
-      if (!st.pos) { if (kind === 'close') return toast('当前没有持仓', true); }
-      else {
-        const p = st.pos;
-        let qtyToClose = amount > 0 ? toQty(amount, price) : p.qty;
-        if (!(qtyToClose > 0)) qtyToClose = p.qty;
-        const partial = qtyToClose < p.qty - 1e-9;
-        const q = partial ? qtyToClose : p.qty;
-        const pnl = (price - p.avg) * q * p.side;
-        st.closed.push({ side: p.side > 0 ? 'long' : 'short', qty: q, entryTime: p.entryTime, entryPrice: p.avg, exitTime: bar.timestamp, exitPrice: price, pnl });
-        st.orders.push({ t: bar.timestamp, price, side: p.side, qty: q, kind: 'close', pnl });
-        if (partial) {
-          st.pos.qty = p.qty - q;
-        } else {
-          st.pos = null;
-        }
-        if (kind === 'close') { renderPos(); renderReplayMarkers(); return; }
-      }
+    if (kind === 'close') {
+      if (!st.pos) return toast('当前没有持仓', true);
+      const p = st.pos;
+      let qtyToClose = amount > 0 ? toQty(amount, price) : p.qty;
+      if (!(qtyToClose > 0)) qtyToClose = p.qty;
+      const partial = qtyToClose < p.qty - 1e-9;
+      const q = partial ? qtyToClose : p.qty;
+      const pnl = (price - p.avg) * q * p.side;
+      st.closed.push({ side: p.side > 0 ? 'long' : 'short', qty: q, entryTime: p.entryTime, entryPrice: p.avg, exitTime: bar.timestamp, exitPrice: price, pnl });
+      st.orders.push({ t: bar.timestamp, price, side: p.side, qty: q, kind: 'close', pnl });
+      if (partial) st.pos.qty = p.qty - q;
+      else st.pos = null;
+      renderPos();
+      renderReplayMarkers();
+      return;
     }
 
-    if (kind === 'open' || kind === 'flip') {
-      if (!amount || amount <= 0) return toast('保证金要大于 0', true);
+    if (kind === 'open') {
+      if (!amount || amount <= 0) return toast('开仓金额要大于 0', true);
       const qty = toQty(amount, price);
       const need = (qty * price) / (lev || 1);
       const eqNow = equity();
       if (need > eqNow + 1e-6) return toast('保证金不足：可用 ' + fmtNum(eqNow, 2) + ' U', true);
-      if (st.pos) {
-        if (st.pos.side === side) {
-          st.pos.avg = (st.pos.avg * st.pos.qty + price * qty) / (st.pos.qty + qty);
-          st.pos.qty += qty;
-          st.pos.lev = lev || st.pos.lev;
-        }
-      } else {
-        st.pos = { side, qty, avg: price, entryTime: bar.timestamp, lev };
+
+      let remain = qty;
+      // 反向开仓 = 先减仓（净持仓）
+      if (st.pos && st.pos.side !== side) {
+        const q = Math.min(st.pos.qty, remain);
+        const pnl = (price - st.pos.avg) * q * st.pos.side;
+        st.closed.push({ side: st.pos.side > 0 ? 'long' : 'short', qty: q, entryTime: st.pos.entryTime, entryPrice: st.pos.avg, exitTime: bar.timestamp, exitPrice: price, pnl });
+        st.orders.push({ t: bar.timestamp, price, side: st.pos.side, qty: q, kind: 'close', pnl });
+        st.pos.qty -= q;
+        remain -= q;
+        if (st.pos.qty <= 1e-9) st.pos = null;
       }
-      st.orders.push({ t: bar.timestamp, side, qty, price, kind: 'open', lev });
+
+      if (remain > 1e-12) {
+        if (st.pos && st.pos.side === side) {
+          st.pos.avg = (st.pos.avg * st.pos.qty + price * remain) / (st.pos.qty + remain);
+          st.pos.qty += remain;
+          st.pos.lev = lev || st.pos.lev;
+        } else {
+          st.pos = { side, qty: remain, avg: price, entryTime: bar.timestamp, lev };
+        }
+        st.orders.push({ t: bar.timestamp, side, qty: remain, price, kind: 'open', lev });
+      }
     }
     renderPos();
     renderReplayMarkers();
