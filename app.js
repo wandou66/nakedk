@@ -242,10 +242,23 @@
       if (!p || p.x == null) return [];
       const st = (overlay.styles && overlay.styles.line) || {};
       const color = st.color || '#f0b000';
-      return [
+      const figures = [
         { type: 'line', attrs: { coordinates: [{ x: p.x - 20, y: p.y }, { x: p.x + 20, y: p.y }] }, styles: { color, size: 3 } },
         { type: 'line', attrs: { coordinates: [{ x: p.x, y: p.y - 6 }, { x: p.x, y: p.y + 6 }] }, styles: { color, size: 2 } },
       ];
+      const label = overlay.extendData;
+      if (label) {
+        figures.push({
+          type: 'text',
+          attrs: { x: p.x + 24, y: p.y, text: String(label), align: 'left', baseline: 'middle' },
+          styles: {
+            color, size: 10, family: 'Microsoft YaHei, sans-serif',
+            backgroundColor: 'rgba(0,0,0,.6)',
+            paddingLeft: 3, paddingRight: 3, paddingTop: 1, paddingBottom: 1,
+          },
+        });
+      }
+      return figures;
     },
   });
 
@@ -1147,7 +1160,7 @@
         const lev = Number($('rpLev').value) || 1;
         const pct = Number(b.dataset.pct);
         if (S.unit === 'U') {
-          $('rpQty').value = Math.max(0, Math.round(eq * pct));
+          $('rpQty').value = Math.max(0, Math.round(eq * pct * lev));
         } else {
           $('rpQty').value = Math.max(0, Math.floor((eq * pct * lev / price) * 1e6) / 1e6);
         }
@@ -1224,7 +1237,7 @@
     el.innerHTML =
       '<span style="color:' + (st.pos.side > 0 ? 'var(--up)' : 'var(--down)') + '">' + (st.pos.side > 0 ? '多' : '空') + '</span>' +
       '<span>均价 <b>' + fmtPx(st.pos.avg) + '</b></span>' +
-      '<span>保证金 <b>' + fmtNum((st.pos.qty * st.pos.avg) / (st.pos.lev || 1), 0) + ' U</b></span>' +
+      '<span>持仓 <b>' + fmtNum(st.pos.qty * p.close, 0) + ' U</b></span>' +
       '<span>浮盈 <b class="' + (upnl >= 0 ? 'pos' : 'neg') + '">' + (upnl >= 0 ? '+' : '') + fmtNum(upnl, 2) + '</b></span>' +
       '<span>盈亏 <b class="' + (total >= 0 ? 'pos' : 'neg') + '">' + (total >= 0 ? '+' : '') + fmtNum(total, 2) + '</b></span>' +
       '<span>权益 <b>' + fmtNum(equity(), 2) + '</b></span>';
@@ -1236,8 +1249,8 @@
     if (!st.active || !p) { $('rbInfo').textContent = '—'; return; }
     let extra = '';
     if (st.pos) {
-      const m = (st.pos.qty * st.pos.avg) / (st.pos.lev || 1);
-      extra = ' · ' + (st.pos.side > 0 ? '多' : '空') + ' ' + fmtNum(m, 0) + 'U';
+      const notional = st.pos.qty * p.close;
+      extra = ' · ' + (st.pos.side > 0 ? '多' : '空') + ' ' + fmtNum(notional, 0) + 'U';
     }
     if (isMobile()) {
       $('rbInfo').textContent = fmtTime(p.timestamp) + ' ' + (st.idx + 1) + '/' + st.bars.length + extra;
@@ -1271,12 +1284,12 @@
       if (o.kind === 'open') {
         const up = o.side > 0;
         const color = up ? '#2962ff' : '#f23645';
-        const margin = (o.qty * o.price) / (o.lev || 1);
+        const notional = o.qty * o.price;
         list.push({
           name: up ? 'arrowUp' : 'arrowDown',
           groupId: 'rp', lock: true,
           points: [{ timestamp: o.t, value: up ? bar.low : bar.high }],
-          extendData: fmtNum(margin, 0) + 'U',
+          extendData: fmtNum(notional, 0) + 'U',
           styles: { polygon: { color }, line: { color, size: 1.5 } },
         });
       } else {
@@ -1285,6 +1298,7 @@
           name: 'closeTag',
           groupId: 'rp', lock: true,
           points: [{ timestamp: o.t, value: o.price }],
+          extendData: '平 ' + fmtNum(o.qty * o.price, 0) + 'U',
           styles: { line: { color: pnl >= 0 ? '#26a69a' : '#ef5350', size: 1, style: 'dashed' } },
         });
       }
@@ -1565,18 +1579,17 @@
   }
 
   function toQty(amount, price) {
-    const lev = Number($('rpLev').value) || 1;
-    if (S.unit === 'U') return (amount * lev) / price;
+    if (S.unit === 'U') return amount / price;
     return amount;
   }
 
   function updateUnitLabel() {
     const el = $('rpQtyLabel');
     if (!el) return;
-    el.textContent = S.unit === 'U' ? '保证金(U)' : '数量(币)';
+    el.textContent = S.unit === 'U' ? '开仓金额(U)' : '数量(币)';
     const inp = $('rpQty');
     inp.step = S.unit === 'U' ? '1' : 'any';
-    inp.value = S.unit === 'U' ? '100' : '0.1';
+    inp.value = S.unit === 'U' ? '1000' : '0.1';
   }
 
   function placeOrder(kind) {

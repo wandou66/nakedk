@@ -162,7 +162,6 @@ body[data-theme="light"] .replaybar { background: rgba(255,255,255,.97); }
 .focus-next.hidden { display: none; }
 .focus-next:active { opacity: 1; background: rgba(41, 98, 255, .95); }
 body.focus-mode .replaybar { display: none; }
-.focus-next { display: none; }
 
 #chart { flex: 1 1 auto; min-height: 0; background: var(--bg); touch-action: none; }
 
