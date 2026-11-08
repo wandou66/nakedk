@@ -48,7 +48,8 @@
 
   async function getCatalog(force) {
     const cached = LS.get('catalog', null);
-    if (!force && cached && Date.now() - cached.at < 6 * 3600 * 1000) return cached.items || [];
+    const cachedOK = cached && Date.now() - cached.at < 6 * 3600 * 1000 && (!cached.missing || !cached.missing.length);
+    if (!force && cachedOK) return { items: cached.items || [], missing: [] };
     const items = [];
     const vol = {};
 
@@ -90,8 +91,10 @@
     } catch (_) { /* 忽略 */ }
 
     if (!items.length) throw new Error('品种目录拉取失败，检查网络或关掉广告拦截');
-    LS.set('catalog', { at: Date.now(), items });
-    return items;
+    const have = new Set(items.map((i) => i.src));
+    const missing = ['binance-perp', 'binance-spot', 'okx-swap', 'okx-spot'].filter((s) => !have.has(s));
+    if (!missing.length) LS.set('catalog', { at: Date.now(), items });
+    return { items, missing };
   }
 
   function searchCatalog(items, q) {
@@ -225,9 +228,9 @@
 
     if (p === '/api/catalog') {
       const kw = (q.get('q') || '').trim();
-      if (!kw) return { items: [] };
-      const all = await getCatalog(q.get('refresh') === '1');
-      return { items: searchCatalog(all, kw), total: all.length };
+      if (!kw) return { items: [], missing: [] };
+      const cat = await getCatalog(q.get('refresh') === '1');
+      return { items: searchCatalog(cat.items, kw), total: cat.items.length, missing: cat.missing || [] };
     }
 
     if (p === '/api/kline') {

@@ -271,6 +271,7 @@
         try {
           const j = await api('/api/catalog?q=' + encodeURIComponent(kw));
           searchItems = j.items || [];
+          S.catalogMissing = j.missing || [];
           searchIdx = -1;
           if (searchItems.length && !searchItems.some((it) => it.src.startsWith('binance')) && !S.warnedBnb) {
             S.warnedBnb = true;
@@ -303,6 +304,26 @@
         byCoin.get(it.coin).push(it);
       });
       box.innerHTML = '';
+      if ((S.catalogMissing || []).some((m) => m.startsWith('binance'))) {
+        const warn = document.createElement('div');
+        warn.className = 'ddcoin';
+        warn.innerHTML = '币安未连接 <span class="retry">重试</span>';
+        warn.querySelector('.retry').onclick = async (e) => {
+          e.stopPropagation();
+          try {
+            const qq = $('q').value.trim();
+            const jj = await api('/api/catalog?q=' + encodeURIComponent(qq) + '&refresh=1');
+            searchItems = jj.items || [];
+            S.catalogMissing = jj.missing || [];
+            renderResults();
+            if (!S.catalogMissing.some((m) => m.startsWith('binance'))) toast('币安已连接');
+            else toast('币安还是连不上，检查网络/代理', true);
+          } catch (err) {
+            toast('重试失败: ' + err.message, true);
+          }
+        };
+        box.appendChild(warn);
+      }
       let i = 0;
       byCoin.forEach((list, coin) => {
         const h = document.createElement('div');
@@ -687,6 +708,17 @@
     };
     $('backdrop').onclick = closeDrawers;
     $('focusNext').onclick = () => step(1);
+    // 长按前进键 = 播放/暂停
+    (function () {
+      const btn = $('focusNext');
+      let t = null;
+      btn.addEventListener('pointerdown', () => {
+        t = setTimeout(() => { t = null; togglePlay(); }, 550);
+      });
+      ['pointerup', 'pointerleave', 'pointercancel'].forEach((ev) =>
+        btn.addEventListener(ev, () => { if (t) { clearTimeout(t); t = null; } })
+      );
+    })();
 
     // 双击图表空白处 → 专注看 K；再双击或 Esc 退出
     $('chart').addEventListener('dblclick', (e) => {

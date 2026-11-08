@@ -66,6 +66,7 @@ button.block { width: 100%; }
   box-shadow: 0 14px 32px rgba(0,0,0,.45); z-index: 80;
 }
 .ddcoin { padding: 5px 10px; font-size: 11px; color: var(--muted); background: var(--panel); position: sticky; top: 0; }
+.ddcoin .retry { color: var(--accent); cursor: pointer; margin-left: 6px; text-decoration: underline; }
 .dditem { padding: 6px 10px; display: flex; gap: 8px; align-items: center; cursor: pointer; }
 .dditem:hover, .dditem.active { background: rgba(41,98,255,.16); }
 .dditem .nm { font-weight: 600; }
@@ -323,14 +324,16 @@ body.focus-mode .right { display: none; }
   #rbPrev:active, #rbNext:active { opacity: 1; }
 
   .focus-next {
-    position: fixed; right: 12px; bottom: calc(92px + env(safe-area-inset-bottom, 0px));
-    width: 46px; height: 46px; border-radius: 50%; z-index: 66; padding: 0;
+    position: fixed; right: 12px; bottom: calc(54px + env(safe-area-inset-bottom, 0px));
+    width: 50px; height: 50px; border-radius: 50%; z-index: 66; padding: 0;
     background: rgba(41, 98, 255, .72); border: 1px solid rgba(255, 255, 255, .18); color: #fff;
-    font-size: 15px; display: flex; align-items: center; justify-content: center;
+    font-size: 16px; display: flex; align-items: center; justify-content: center;
     box-shadow: 0 6px 18px rgba(0, 0, 0, .4); opacity: .9;
   }
   .focus-next.hidden { display: none; }
   .focus-next:active { opacity: 1; background: rgba(41, 98, 255, .95); }
+
+  body.focus-mode .replaybar { display: none; }
 
   .tradebar { gap: 4px; padding: 5px 6px; padding-bottom: calc(5px + env(safe-area-inset-bottom, 0px)); flex-wrap: nowrap; overflow: hidden; }
   .tradebar > .tbgroup:nth-child(1) { order: 1; }
