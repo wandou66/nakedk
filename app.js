@@ -1045,8 +1045,10 @@
     return parseInt(m[1], 10) * ({ m: 1, h: 60, d: 1440, w: 10080 }[m[2]] || 1);
   }
   function windowSize() {
-    return S.src.startsWith('okx') ? 2400 : 6000;
+    return 2000;
   }
+
+  const winCache = new Map();
 
   async function fetchWindow(startTs, count) {
     const q = new URLSearchParams({
@@ -1058,7 +1060,7 @@
 
   function trimWindow() {
     const st = R();
-    const MAX = 12000;
+    const MAX = 40000;
     if (st.bars.length <= MAX) return;
     const drop = st.bars.length - MAX;
     st.bars = st.bars.slice(drop);
@@ -1070,10 +1072,20 @@
   async function loadReplayWindow(anchorTs) {
     const st = R();
     const tfm = tfMinutes(S.tf);
-    const size = windowSize();
-    const back = size === 2400 ? 1000 : 2000;
+    const wantBars = Math.floor((365 * 86400000) / (tfm * 60000));
+    const cap = S.src.startsWith('okx') ? 4000 : 30000;
+    const back = Math.min(cap, Math.max(600, wantBars));
+    const size = back + 800;
     const start = anchorTs - back * tfm * 60000;
-    const j = await fetchWindow(start, size);
+    const key = [S.src, S.symbol, S.tf, Math.floor(start / 3600000), size].join('|');
+    let j = winCache.get(key);
+    if (!j) {
+      j = await fetchWindow(start, size);
+      if (j && j.bars && j.bars.length) {
+        if (winCache.size > 6) winCache.clear();
+        winCache.set(key, j);
+      }
+    }
     st.bars = j.bars || [];
     st.hasMore = !!j.hasMore;
     st.hasPrev = st.bars.length ? !(st.bars[0].timestamp > start + tfm * 60000 * 2) : false;

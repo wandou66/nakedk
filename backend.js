@@ -177,7 +177,7 @@
     const bars = [];
     let start = Math.max(0, Math.floor(startTs));
     let guard = 0;
-    while (bars.length < count && guard < 20) {
+    while (bars.length < count && guard < 40) {
       guard++;
       const rows = await j(base + path + '?symbol=' + encodeURIComponent(symbol) + '&interval=' + tf + '&startTime=' + start + '&limit=' + limit);
       if (!Array.isArray(rows) || !rows.length) break;
