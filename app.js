@@ -59,8 +59,7 @@
   const fmtShort = (v) => {
     if (v == null || !isFinite(v)) return '—';
     const a = Math.abs(v);
-    if (a >= 1000000) return (v / 10000).toFixed(0) + '万';
-    if (a >= 10000) return (v / 10000).toFixed(1) + '万';
+    if (a >= 100000) return (v / 10000).toFixed(1) + '万';
     return Math.round(v).toString();
   };
   const fmtTime = (ts) => new Date(ts).toLocaleString('zh-CN', { timeZone: 'UTC', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false });
