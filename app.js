@@ -100,8 +100,14 @@
         xAxis: { tickText: { color: '#6b7280' }, axisLine: { color: '#1a1a1a' } },
         yAxis: { tickText: { color: '#6b7280' }, axisLine: { color: '#1a1a1a' } },
         crosshair: {
-          horizontal: { line: { color: '#4b5563' }, text: { backgroundColor: '#1f2937' } },
-          vertical: { line: { color: '#4b5563' }, text: { backgroundColor: '#1f2937' } },
+          horizontal: {
+            line: { color: '#4b5563' },
+            text: { backgroundColor: '#1f2937', color: '#f3f4f6', borderColor: '#374151', borderSize: 1 },
+          },
+          vertical: {
+            line: { color: '#4b5563' },
+            text: { backgroundColor: '#1f2937', color: '#f3f4f6', borderColor: '#374151', borderSize: 1 },
+          },
         },
       };
     }
@@ -116,8 +122,14 @@
       xAxis: { tickText: { color: '#6b7280' }, axisLine: { color: '#e5e7eb' } },
       yAxis: { tickText: { color: '#6b7280' }, axisLine: { color: '#e5e7eb' } },
       crosshair: {
-        horizontal: { line: { color: '#9ca3af' }, text: { backgroundColor: '#f3f4f6' } },
-        vertical: { line: { color: '#9ca3af' }, text: { backgroundColor: '#f3f4f6' } },
+        horizontal: {
+          line: { color: '#9ca3af' },
+          text: { backgroundColor: '#e8ebf0', color: '#1f2328', borderColor: '#c9ced6', borderSize: 1 },
+        },
+        vertical: {
+          line: { color: '#9ca3af' },
+          text: { backgroundColor: '#e8ebf0', color: '#1f2328', borderColor: '#c9ced6', borderSize: 1 },
+        },
       },
     };
   }
