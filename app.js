@@ -1283,9 +1283,16 @@
     const leftTs = list[vr.from] ? list[vr.from].timestamp : null;
     backLoading = true;
     lastBackAt = Date.now();
+    busy(true);
     try {
       const ok = await ensureBackward();
-      if (!ok) return false;
+      if (!ok) {
+        if (!st.hasPrev && !st._noMoreToast) {
+          st._noMoreToast = true;
+          toast('已经到最早的 K 线了');
+        }
+        return false;
+      }
       const bars = transformBars(st.bars.slice(0, st.idx + 1));
       chart.applyNewData(bars);
       const vr2 = chart.getVisibleRange();
@@ -1297,6 +1304,7 @@
       return true;
     } finally {
       backLoading = false;
+      busy(false);
     }
   }
 
