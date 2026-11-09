@@ -7,7 +7,7 @@
   window.__chart = chart;
   const S = {
     id: null, src: 'binance-perp', symbol: null, coin: '', label: '', tf: '15m',
-    bars: [], prec: 4, scale: 'linear', theme: 'dark', unit: 'U',
+    bars: [], prec: 4, scale: 'linear', theme: 'dark', unit: 'U', candle: 'solid',
     trades: [], watchlist: { groups: [] }, drawings: [], tool: null, selectedId: null,
     note: '', noteTimer: null, openGroups: {},
     ui: { left: false, right: false, focus: false },
@@ -87,10 +87,12 @@
   function fromChartPoints(points) { return points || []; }
 
   function chartStyles(theme) {
+    const hollow = S.candle === 'hollow';
     if (theme === 'dark') {
       return {
         grid: { show: false, horizontal: { color: '#000', size: 1, style: 'solid' }, vertical: { color: '#000', size: 1, style: 'solid' } },
         candle: {
+          type: hollow ? 'candle_stroke' : 'candle_solid',
           bar: { upColor: '#26a69a', downColor: '#ef5350', noChangeColor: '#888' },
           priceMark: { last: { upColor: '#26a69a', downColor: '#ef5350' }, high: { color: '#6b7280' }, low: { color: '#6b7280' } },
           tooltip: { rect: { color: 'rgba(0,0,0,.92)', borderColor: '#222' }, text: { color: '#d1d4dc', size: 12 } },
@@ -104,8 +106,9 @@
       };
     }
     return {
-      grid: { show: true, horizontal: { color: '#eceff3' }, vertical: { color: '#eceff3' } },
+      grid: { show: false, horizontal: { color: '#eceff3' }, vertical: { color: '#eceff3' } },
       candle: {
+        type: hollow ? 'candle_stroke' : 'candle_solid',
         bar: { upColor: '#26a69a', downColor: '#ef5350', noChangeColor: '#888' },
         priceMark: { last: { upColor: '#26a69a', downColor: '#ef5350' }, high: { color: '#9aa0a6' }, low: { color: '#9aa0a6' } },
         tooltip: { rect: { color: 'rgba(255,255,255,.96)', borderColor: '#e5e7eb' }, text: { color: '#1f2328', size: 12 } },
@@ -162,9 +165,9 @@
             type: 'text',
             attrs: { x: lx, y: tailY + dir * 3, text: String(label), align: 'center', baseline: dir > 0 ? 'top' : 'bottom' },
             styles: {
-              color, size: 10, family: 'Microsoft YaHei, sans-serif',
-              backgroundColor: 'rgba(0,0,0,.6)',
-              paddingLeft: 3, paddingRight: 3, paddingTop: 1, paddingBottom: 1,
+              color: '#fff', size: 10, family: 'Microsoft YaHei, sans-serif',
+              backgroundColor: color,
+              paddingLeft: 4, paddingRight: 4, paddingTop: 1, paddingBottom: 1,
             },
           });
         }
@@ -261,9 +264,9 @@
           type: 'text',
           attrs: { x: fitsRight ? right : p.x - 24, y: p.y, text: String(label), align: fitsRight ? 'left' : 'right', baseline: 'middle' },
           styles: {
-            color, size: 10, family: 'Microsoft YaHei, sans-serif',
-            backgroundColor: 'rgba(0,0,0,.6)',
-            paddingLeft: 3, paddingRight: 3, paddingTop: 1, paddingBottom: 1,
+            color: '#fff', size: 10, family: 'Microsoft YaHei, sans-serif',
+            backgroundColor: color,
+            paddingLeft: 4, paddingRight: 4, paddingTop: 1, paddingBottom: 1,
           },
         });
       }
@@ -1887,6 +1890,12 @@
     $('btnLibrary').onclick = openLibrary;
     $('btnBackup').onclick = backupAll;
     $('btnTheme').onclick = () => applyTheme(S.theme === 'dark' ? 'light' : 'dark');
+    $('btnCandle').onclick = () => {
+      S.candle = S.candle === 'hollow' ? 'solid' : 'hollow';
+      $('btnCandle').textContent = S.candle === 'hollow' ? '空K' : '实K';
+      chart.setStyles(chartStyles(S.theme));
+      try { localStorage.setItem('nk.candle', S.candle); } catch (_) { /* 忽略 */ }
+    };
     $('scaleSel').onchange = (e) => setScale(e.target.value);
     $('modal').onclick = (e) => { if (e.target === $('modal')) closeModal(); };
     window.addEventListener('resize', () => chart.resize());
@@ -1924,12 +1933,15 @@
       if (th) S.theme = th;
       const sc = localStorage.getItem('nk.scale');
       if (sc && SCALES[sc]) { S.scale = sc; $('scaleSel').value = sc; }
+      const cd = localStorage.getItem('nk.candle');
+      if (cd === 'hollow' || cd === 'solid') S.candle = cd;
       const ui = JSON.parse(localStorage.getItem('nk.ui') || 'null');
       if (ui) { S.ui.left = !!ui.left; S.ui.right = !!ui.right; }
       else if (localStorage.getItem('nk.leftHidden') === '1') S.ui.left = true;
     } catch (_) { /* 忽略 */ }
     applyTheme(S.theme);
     applyYAxisType();
+    $('btnCandle').textContent = S.candle === 'hollow' ? '空K' : '实K';
     bindUI();
     applyUI();
     if (isMobile()) {
