@@ -1154,7 +1154,7 @@
     const st = R();
     const tfm = tfMinutes(S.tf);
     const wantBars = Math.floor((365 * 86400000) / (tfm * 60000));
-    const cap = S.src.startsWith('okx') ? 4000 : 30000;
+    const cap = S.src.startsWith('okx') ? 4000 : (tfm <= 15 ? 8000 : tfm <= 30 ? 9000 : 30000);
     const back = Math.min(cap, Math.max(600, wantBars));
     const size = back + 800;
     const start = anchorTs - back * tfm * 60000;
@@ -1588,8 +1588,13 @@
       renderReplayInfo(); renderPos();
       toast('回放开始：◀ ▶ 或空格前进');
     } catch (e) {
-      window.__lastErr = String((e && e.stack) || e);
-      toast('回放启动失败: ' + (e && e.message ? e.message : e), true);
+      const msg = String((e && e.message) || e);
+      window.__lastErr = msg;
+      if (/41[89]|42[29]|限流|rate/i.test(msg)) {
+        toast('交易所限流：' + msg + '。等几分钟再试，或改用 OKX 品种', true);
+      } else {
+        toast('回放启动失败: ' + msg, true);
+      }
     } finally {
       busy(false);
     }

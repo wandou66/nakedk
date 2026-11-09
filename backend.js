@@ -28,7 +28,10 @@
     const t = setTimeout(() => ctl.abort(), timeoutMs || 20000);
     try {
       const res = await fetch(url, { signal: ctl.signal });
-      if (!res.ok) throw new Error('HTTP ' + res.status);
+      if (!res.ok) {
+        const s = res.status;
+        throw new Error(s === 418 || s === 429 ? '交易所限流（HTTP ' + s + '）' : 'HTTP ' + s);
+      }
       return await res.json();
     } finally {
       clearTimeout(t);
@@ -244,7 +247,17 @@
       if (startRaw !== null && startRaw !== '') {
         const startTs = Number(startRaw);
         const count = Number(q.get('count')) || 3000;
-        const bars = okx ? await okxRange(src, symbol, tf, startTs, count) : await bnRange(src, symbol, tf, startTs, count);
+        const ck = 'rng|' + src + '|' + symbol + '|' + tf + '|' + Math.floor(startTs / 60000) + '|' + count;
+        const c = LS.get(ck, null);
+        let bars;
+        if (c && Date.now() - c.at < 10 * 60 * 1000) {
+          bars = c.bars;
+        } else {
+          bars = okx ? await okxRange(src, symbol, tf, startTs, count) : await bnRange(src, symbol, tf, startTs, count);
+          try {
+            if (bars.length && bars.length <= 8000) LS.set(ck, { at: Date.now(), bars });
+          } catch (_) { /* 空间不足就跳过 */ }
+        }
         return {
           bars,
           count: bars.length,
