@@ -1184,8 +1184,9 @@
   async function loadReplayWindow(anchorTs) {
     const st = R();
     const tfm = tfMinutes(S.tf);
-    const wantBars = 1500;
-    const cap = S.src.startsWith('okx') ? 1000 : 1500;
+    const PRE = { '1m': 3000, '3m': 5000, '5m': 6000, '15m': 12000, '30m': 12000, '1h': 3000, '4h': 3000, '1d': 2000 };
+    const wantBars = PRE[S.tf] || 6000;
+    const cap = S.src.startsWith('okx') ? Math.min(wantBars, 3000) : wantBars;
     const back = Math.min(cap, Math.max(600, wantBars));
     const size = back + 800;
     const start = anchorTs - back * tfm * 60000;
@@ -1272,6 +1273,8 @@
   async function loadOlderByScroll(force) {
     const st = R();
     if (!st.active || st.loading || backLoading || !st.hasPrev) return false;
+    // 只有 1h / 4h / 1d 支持拖动补载，小周期一次预加载到位
+    if (!force && tfMinutes(S.tf) < 60) return false;
     if (Date.now() - lastBackAt < 1200) return false;
     if (!force) {
       const vr0 = chart.getVisibleRange();
