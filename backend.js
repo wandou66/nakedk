@@ -140,6 +140,7 @@
     let guard = 0;
     while (guard < 20 && total < maxBars) {
       guard++;
+      await gate('bn');
       const rows = await j(base + path + '?symbol=' + encodeURIComponent(symbol) + '&interval=' + tf + '&endTime=' + end + '&limit=' + limit);
       if (!Array.isArray(rows) || !rows.length) break;
       chunks.unshift(rows);
@@ -161,6 +162,7 @@
     let guard = 0;
     while (guard < 60 && rows.length < maxBars) {
       guard++;
+      await gate('okx');
       const r = await j('https://www.okx.com/api/v5/market/history-candles?instId=' + encodeURIComponent(symbol) + '&bar=' + bar + '&after=' + after + '&limit=100');
       if (!r || r.code !== '0' || !r.data || !r.data.length) break;
       for (const x of r.data) rows.push({ timestamp: +x[0], open: +x[1], high: +x[2], low: +x[3], close: +x[4], volume: +(x[7] || x[5] || 0) });
@@ -170,6 +172,21 @@
     if (!rows.length) throw new Error('OKX 没有取到 K 线：' + symbol);
     rows.reverse();
     return rows;
+  }
+
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  let lastBn = 0;
+  let lastOkx = 0;
+  async function gate(which) {
+    if (which === 'bn') {
+      const w = 220 - (Date.now() - lastBn);
+      if (w > 0) await sleep(w);
+      lastBn = Date.now();
+    } else {
+      const w = 150 - (Date.now() - lastOkx);
+      if (w > 0) await sleep(w);
+      lastOkx = Date.now();
+    }
   }
 
   async function bnRange(src, symbol, tf, startTs, count) {
@@ -182,6 +199,7 @@
     let guard = 0;
     while (bars.length < count && guard < 40) {
       guard++;
+      await gate('bn');
       const rows = await j(base + path + '?symbol=' + encodeURIComponent(symbol) + '&interval=' + tf + '&startTime=' + start + '&limit=' + limit);
       if (!Array.isArray(rows) || !rows.length) break;
       for (const r of rows) if (!bars.length || r[0] > bars[bars.length - 1].timestamp) bars.push(barFromBinance(r));
@@ -199,6 +217,7 @@
     let guard = 0;
     while (out.length < count && guard < 80) {
       guard++;
+      await gate('okx');
       const r = await j('https://www.okx.com/api/v5/market/history-candles?instId=' + encodeURIComponent(symbol) + '&bar=' + bar + '&after=' + after + '&limit=100');
       if (!r || r.code !== '0' || !r.data || !r.data.length) break;
       const rows = r.data

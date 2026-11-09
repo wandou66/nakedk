@@ -1154,7 +1154,7 @@
     const st = R();
     const tfm = tfMinutes(S.tf);
     const wantBars = Math.floor((365 * 86400000) / (tfm * 60000));
-    const cap = S.src.startsWith('okx') ? 4000 : (tfm <= 15 ? 8000 : tfm <= 30 ? 9000 : 30000);
+    const cap = S.src.startsWith('okx') ? 1500 : (tfm <= 30 ? 3000 : tfm <= 60 ? 9000 : 3000);
     const back = Math.min(cap, Math.max(600, wantBars));
     const size = back + 800;
     const start = anchorTs - back * tfm * 60000;
