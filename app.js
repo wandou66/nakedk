@@ -1288,7 +1288,11 @@
       if (!ok) return false;
       const bars = transformBars(st.bars.slice(0, st.idx + 1));
       chart.applyNewData(bars);
-      if (leftTs) chart.scrollToTimestamp(leftTs, 0);
+      const vr2 = chart.getVisibleRange();
+      const count = vr2 && vr2.to >= vr2.from ? vr2.to - vr2.from + 1 : 100;
+      let ti = leftTs ? bars.findIndex((b) => b.timestamp >= leftTs) : -1;
+      if (ti < 0) ti = Math.max(0, bars.length - count);
+      chart.scrollToDataIndex(Math.min(bars.length - 1, ti + count - 1), 0);
       renderReplayMarkers();
       return true;
     } finally {
