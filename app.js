@@ -528,7 +528,8 @@
     };
   }
 
-  const drawKey = () => [S.src, S.symbol, S.tf].join('|');
+  const drawKey = () => [S.src, S.symbol].join('|');
+  const LEGACY_TFS = ['1m', '3m', '5m', '15m', '30m', '1h', '4h', '1d'];
 
   let drawTimer = null;
   function saveDrawings() {
@@ -554,7 +555,37 @@
     S.drawings = [];
     try {
       const j = await api('/api/drawings?key=' + encodeURIComponent(drawKey()));
-      const saved = (j.items || []).filter((x) => x && x.name && x.points && x.points.length);
+      let saved = (j.items || []).filter((x) => x && x.name && x.points && x.points.length);
+      // 旧版本按周期分开存，首次升级时合并各周期的标注
+      if (!saved.length && S.symbol) {
+        const merged = [];
+        const seen = new Set();
+        for (const tf of LEGACY_TFS) {
+          try {
+            const old = await api('/api/drawings?key=' + encodeURIComponent([S.src, S.symbol, tf].join('|')));
+            for (const it of old.items || []) {
+              if (!it || !it.name || !it.points || !it.points.length) continue;
+              const sig = it.name + '|' + JSON.stringify(it.points);
+              if (seen.has(sig)) continue;
+              seen.add(sig);
+              merged.push(it);
+            }
+          } catch (_) { /* 忽略 */ }
+        }
+        if (merged.length) {
+          saved = merged;
+          try {
+            await api('/api/drawings', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                key: drawKey(),
+                meta: { src: S.src, symbol: S.symbol, coin: S.coin, label: S.label },
+                items: merged,
+              }),
+            });
+          } catch (_) { /* 忽略 */ }
+        }
+      }
       if (saved.length) {
         const ids = chart.createOverlay(saved.map((d) => ({
           ...d,
@@ -1153,8 +1184,9 @@
   async function loadReplayWindow(anchorTs) {
     const st = R();
     const tfm = tfMinutes(S.tf);
-    const wantBars = Math.floor((365 * 86400000) / (tfm * 60000));
-    const cap = S.src.startsWith('okx') ? 1500 : (tfm <= 30 ? 3000 : tfm <= 60 ? 9000 : 3000);
+    const years = tfm <= 30 ? 1 : tfm <= 60 ? 2 : tfm <= 240 ? 5 : 10;
+    const wantBars = Math.floor((years * 365 * 86400000) / (tfm * 60000));
+    const cap = S.src.startsWith('okx') ? 1500 : (tfm <= 30 ? 3000 : tfm <= 60 ? 20000 : tfm <= 240 ? 12000 : 5000);
     const back = Math.min(cap, Math.max(600, wantBars));
     const size = back + 800;
     const start = anchorTs - back * tfm * 60000;
