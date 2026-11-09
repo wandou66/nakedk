@@ -1157,7 +1157,7 @@
     return parseInt(m[1], 10) * ({ m: 1, h: 60, d: 1440, w: 10080 }[m[2]] || 1);
   }
   function windowSize() {
-    return 2000;
+    return 4000;
   }
 
   const winCache = new Map();
@@ -1184,9 +1184,8 @@
   async function loadReplayWindow(anchorTs) {
     const st = R();
     const tfm = tfMinutes(S.tf);
-    const years = tfm <= 30 ? 1 : tfm <= 60 ? 2 : tfm <= 240 ? 5 : 10;
-    const wantBars = Math.floor((years * 365 * 86400000) / (tfm * 60000));
-    const cap = S.src.startsWith('okx') ? 1500 : (tfm <= 30 ? 3000 : tfm <= 60 ? 20000 : tfm <= 240 ? 12000 : 5000);
+    const wantBars = 1500;
+    const cap = S.src.startsWith('okx') ? 1000 : 1500;
     const back = Math.min(cap, Math.max(600, wantBars));
     const size = back + 800;
     const start = anchorTs - back * tfm * 60000;
@@ -1255,6 +1254,45 @@
       return false;
     } finally {
       st.loading = false;
+    }
+  }
+
+  let backTimer = null;
+  let lastBackAt = 0;
+  let backLoading = false;
+
+  function scheduleBackwardLoad() {
+    if (backTimer) return;
+    backTimer = setTimeout(() => {
+      backTimer = null;
+      loadOlderByScroll();
+    }, 260);
+  }
+
+  async function loadOlderByScroll(force) {
+    const st = R();
+    if (!st.active || st.loading || backLoading || !st.hasPrev) return false;
+    if (Date.now() - lastBackAt < 1200) return false;
+    if (!force) {
+      const vr0 = chart.getVisibleRange();
+      if (!vr0 || vr0.from == null || vr0.from > 150) return false;
+    }
+    const vr = chart.getVisibleRange();
+    if (!vr || vr.from == null) return false;
+    const list = chart.getDataList();
+    const leftTs = list[vr.from] ? list[vr.from].timestamp : null;
+    backLoading = true;
+    lastBackAt = Date.now();
+    try {
+      const ok = await ensureBackward();
+      if (!ok) return false;
+      const bars = transformBars(st.bars.slice(0, st.idx + 1));
+      chart.applyNewData(bars);
+      if (leftTs) chart.scrollToTimestamp(leftTs, 0);
+      renderReplayMarkers();
+      return true;
+    } finally {
+      backLoading = false;
     }
   }
 
@@ -1975,6 +2013,7 @@
     bindTradeForm();
     bindNote();
     bindReplay();
+    chart.subscribeAction('onScroll', scheduleBackwardLoad);
     bindReplayDrag();
 
     try {
@@ -2023,7 +2062,7 @@
     if (S.replay.active) saveSession();
   });
 
-  window.__nk = { S, removeSelected, setScale, step, ensureForward, ensureBackward, loadReplayWindow };
+  window.__nk = { S, removeSelected, setScale, step, ensureForward, ensureBackward, loadReplayWindow, loadOlderByScroll };
 
   boot().catch((e) => {
     window.__bootErr = String((e && e.stack) || e);
