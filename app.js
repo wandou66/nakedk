@@ -8,7 +8,10 @@
   const S = {
     id: null, src: 'binance-perp', symbol: null, coin: '', label: '', tf: '15m',
     bars: [], prec: 4, scale: 'linear', theme: 'dark', unit: 'U', candle: 'solid',
-    ind: { maType: 'MA', mas: [10, 55, 120, 200], maCount: 4, macd: true, macdParams: [12, 26, 9] },
+    ind: {
+      maType: 'MA', showMa: true, macd: true, macdParams: [12, 26, 9],
+      lines: [{ v: 10, on: true }, { v: 55, on: true }, { v: 120, on: true }, { v: 200, on: true }],
+    },
     trades: [], watchlist: { groups: [] }, drawings: [], tool: null, selectedId: null,
     note: '', noteTimer: null, openGroups: {},
     ui: { left: false, right: false, focus: false },
@@ -166,14 +169,28 @@
     indState = { ma: null, macd: null };
   }
 
+  function normalizeInd(raw) {
+    const out = Object.assign({}, S.ind, raw || {});
+    let lines = out.lines;
+    if ((!lines || !lines.length) && Array.isArray(raw && raw.mas)) {
+      const cnt = Math.max(1, Math.min(4, Number(raw.maCount) || 4));
+      lines = raw.mas.map((v, i) => ({ v: Number(v) || 10, on: i < cnt }));
+    }
+    if (!Array.isArray(lines) || lines.length !== 4) lines = [10, 55, 120, 200].map((v) => ({ v, on: true }));
+    out.lines = lines.map((l, i) => ({ v: Number(l && l.v) || [10, 55, 120, 200][i], on: !(l && l.on === false) }));
+    if (out.maType === 'none') { out.maType = 'MA'; out.showMa = false; }
+    if (!out.maType) out.maType = 'MA';
+    if (typeof out.showMa !== 'boolean') out.showMa = true;
+    return out;
+  }
+
   function applyIndicators() {
     removeIndicators();
     const list = chart.getDataList ? chart.getDataList() : [];
     if (!list || !list.length) return;
     const ind = S.ind;
-    if (ind.maType && ind.maType !== 'none') {
-      const n = Math.max(1, Math.min(4, Number(ind.maCount) || 4));
-      const params = (ind.mas || []).slice(0, n).map((x) => Number(x) || 10);
+    const params = (ind.lines || []).filter((l) => l.on).map((l) => Number(l.v) || 10).slice(0, 4);
+    if (ind.showMa && params.length) {
       try {
         const paneId = chart.createIndicator(ind.maType, false, { id: 'candle_pane' });
         const r = chart.overrideIndicator({ name: ind.maType, calcParams: params }, 'candle_pane');
@@ -193,30 +210,31 @@
 
   function openIndModal() {
     const ind = S.ind;
-    const DEF = [10, 55, 120, 200];
     const opt = (v, t) => '<option value="' + v + '"' + (ind.maType === v ? ' selected' : '') + '>' + t + '</option>';
     openModal(
       '<h3>指标设置</h3>' +
-      '<div class="indrow"><span>均线</span><select id="indType">' + opt('none', '关闭') + opt('MA', 'MA 简单均线') + opt('EMA', 'EMA 指数均线') + '</select></div>' +
-      '<div class="indrow"><span>显示条数</span><select id="indCount">' +
-      [1, 2, 3, 4].map((n) => '<option value="' + n + '"' + (Number(ind.maCount) === n ? ' selected' : '') + '>' + n + ' 条</option>').join('') +
-      '</select></div>' +
+      '<div class="indrow"><label style="display:flex;gap:6px;align-items:center;width:auto"><input type="checkbox" id="indShowMa"' + (ind.showMa ? ' checked' : '') + '> 显示均线</label>' +
+      '<select id="indType">' + opt('MA', 'MA 简单均线') + opt('EMA', 'EMA 指数均线') + '</select></div>' +
       '<div class="indrow"><span>参数</span>' +
-      [0, 1, 2, 3].map((i) => '<input id="indP' + i + '" type="number" min="1" value="' + (ind.mas[i] || DEF[i]) + '">').join('') +
+      [0, 1, 2, 3].map((i) =>
+        '<label style="display:flex;gap:4px;align-items:center"><input type="checkbox" id="indOn' + i + '"' + (ind.lines[i].on ? ' checked' : '') + '>' +
+        '<input id="indV' + i + '" type="number" min="1" value="' + ind.lines[i].v + '"></label>'
+      ).join('') +
       '</div>' +
-      '<div class="indrow"><span>MACD</span><label style="display:flex;gap:6px;align-items:center;font-size:12px"><input type="checkbox" id="indMacd"' + (ind.macd ? ' checked' : '') + '> 显示</label></div>' +
-      '<div class="indrow"><span>MACD 参数</span>' +
+      '<div class="indrow"><label style="display:flex;gap:6px;align-items:center;width:auto"><input type="checkbox" id="indMacd"' + (ind.macd ? ' checked' : '') + '> 显示 MACD</label>' +
       '<input id="indF" type="number" min="1" value="' + (ind.macdParams[0] || 12) + '">' +
       '<input id="indS" type="number" min="1" value="' + (ind.macdParams[1] || 26) + '">' +
-      '<input id="indSig" type="number" min="1" value="' + (ind.macdParams[2] || 9) + '">' +
-      '</div>' +
+      '<input id="indSig" type="number" min="1" value="' + (ind.macdParams[2] || 9) + '"></div>' +
       '<div class="modal-actions"><button id="indSave" class="primary">保存</button><button id="indCancel">取消</button></div>'
     );
     $('indCancel').onclick = closeModal;
     $('indSave').onclick = () => {
       S.ind.maType = $('indType').value;
-      S.ind.maCount = Number($('indCount').value) || 4;
-      S.ind.mas = [0, 1, 2, 3].map((i) => Number($('indP' + i).value) || DEF[i]);
+      S.ind.showMa = $('indShowMa').checked;
+      S.ind.lines = [0, 1, 2, 3].map((i) => ({
+        v: Number($('indV' + i).value) || [10, 55, 120, 200][i],
+        on: $('indOn' + i).checked,
+      }));
       S.ind.macd = $('indMacd').checked;
       S.ind.macdParams = [Number($('indF').value) || 12, Number($('indS').value) || 26, Number($('indSig').value) || 9];
       try { localStorage.setItem('nk.ind', JSON.stringify(S.ind)); } catch (_) { /* 忽略 */ }
@@ -2118,7 +2136,7 @@
       const cd = localStorage.getItem('nk.candle');
       if (cd === 'hollow' || cd === 'solid') S.candle = cd;
       const ind = JSON.parse(localStorage.getItem('nk.ind') || 'null');
-      if (ind && typeof ind === 'object') S.ind = Object.assign({}, S.ind, ind);
+      if (ind && typeof ind === 'object') S.ind = normalizeInd(ind);
       const ui = JSON.parse(localStorage.getItem('nk.ui') || 'null');
       if (ui) { S.ui.left = !!ui.left; S.ui.right = !!ui.right; }
       else if (localStorage.getItem('nk.leftHidden') === '1') S.ui.left = true;
