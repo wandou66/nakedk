@@ -8,6 +8,7 @@
   const S = {
     id: null, src: 'binance-perp', symbol: null, coin: '', label: '', tf: '15m',
     bars: [], prec: 4, scale: 'linear', theme: 'dark', unit: 'U', candle: 'solid',
+    ind: { maType: 'MA', mas: [10, 55, 120, 200], maCount: 4, macd: true, macdParams: [12, 26, 9] },
     trades: [], watchlist: { groups: [] }, drawings: [], tool: null, selectedId: null,
     note: '', noteTimer: null, openGroups: {},
     ui: { left: false, right: false, focus: false },
@@ -148,6 +149,72 @@
 
   function applyYAxisType() {
     chart.setStyles({ yAxis: { type: SCALES[S.scale] || 'normal' } });
+  }
+
+  /* ------------------------------ 指标 ------------------------------ */
+
+  let indState = { ma: null, macd: null };
+
+  function removeIndicators() {
+    try { if (indState.ma) chart.removeIndicator(indState.ma.paneId, indState.ma.name); } catch (_) { /* 忽略 */ }
+    try { if (indState.macd) chart.removeIndicator(indState.macd.paneId, indState.macd.name); } catch (_) { /* 忽略 */ }
+    indState = { ma: null, macd: null };
+  }
+
+  function applyIndicators() {
+    removeIndicators();
+    const list = chart.getDataList ? chart.getDataList() : [];
+    if (!list || !list.length) return;
+    const ind = S.ind;
+    if (ind.maType && ind.maType !== 'none') {
+      const n = Math.max(1, Math.min(4, Number(ind.maCount) || 4));
+      const params = (ind.mas || []).slice(0, n).map((x) => Number(x) || 10);
+      try {
+        const paneId = chart.createIndicator(ind.maType, false, { id: 'candle_pane' }, { calcParams: params });
+        indState.ma = { paneId, name: ind.maType };
+      } catch (e) { console.warn('均线加载失败', e); }
+    }
+    if (ind.macd) {
+      try {
+        const paneId = chart.createIndicator('MACD', false, { id: 'macd_pane', height: 90 }, { calcParams: (ind.macdParams || [12, 26, 9]).map(Number) });
+        indState.macd = { paneId, name: 'MACD' };
+      } catch (e) { console.warn('MACD 加载失败', e); }
+    }
+  }
+
+  function openIndModal() {
+    const ind = S.ind;
+    const DEF = [10, 55, 120, 200];
+    const opt = (v, t) => '<option value="' + v + '"' + (ind.maType === v ? ' selected' : '') + '>' + t + '</option>';
+    openModal(
+      '<h3>指标设置</h3>' +
+      '<div class="indrow"><span>均线</span><select id="indType">' + opt('none', '关闭') + opt('MA', 'MA 简单均线') + opt('EMA', 'EMA 指数均线') + '</select></div>' +
+      '<div class="indrow"><span>显示条数</span><select id="indCount">' +
+      [1, 2, 3, 4].map((n) => '<option value="' + n + '"' + (Number(ind.maCount) === n ? ' selected' : '') + '>' + n + ' 条</option>').join('') +
+      '</select></div>' +
+      '<div class="indrow"><span>参数</span>' +
+      [0, 1, 2, 3].map((i) => '<input id="indP' + i + '" type="number" min="1" value="' + (ind.mas[i] || DEF[i]) + '">').join('') +
+      '</div>' +
+      '<div class="indrow"><span>MACD</span><label style="display:flex;gap:6px;align-items:center;font-size:12px"><input type="checkbox" id="indMacd"' + (ind.macd ? ' checked' : '') + '> 显示</label></div>' +
+      '<div class="indrow"><span>MACD 参数</span>' +
+      '<input id="indF" type="number" min="1" value="' + (ind.macdParams[0] || 12) + '">' +
+      '<input id="indS" type="number" min="1" value="' + (ind.macdParams[1] || 26) + '">' +
+      '<input id="indSig" type="number" min="1" value="' + (ind.macdParams[2] || 9) + '">' +
+      '</div>' +
+      '<div class="modal-actions"><button id="indSave" class="primary">保存</button><button id="indCancel">取消</button></div>'
+    );
+    $('indCancel').onclick = closeModal;
+    $('indSave').onclick = () => {
+      S.ind.maType = $('indType').value;
+      S.ind.maCount = Number($('indCount').value) || 4;
+      S.ind.mas = [0, 1, 2, 3].map((i) => Number($('indP' + i).value) || DEF[i]);
+      S.ind.macd = $('indMacd').checked;
+      S.ind.macdParams = [Number($('indF').value) || 12, Number($('indS').value) || 26, Number($('indSig').value) || 9];
+      try { localStorage.setItem('nk.ind', JSON.stringify(S.ind)); } catch (_) { /* 忽略 */ }
+      applyIndicators();
+      closeModal();
+      toast('指标已更新');
+    };
   }
 
   /* ------------------------------ 自定义图形 ---------------------------- */
@@ -422,6 +489,7 @@
         renderReplayInfo();
         renderPos();
         await Promise.all([loadDrawings(), loadTrades(), loadNote(), loadSession()]);
+        applyIndicators();
         return;
       }
 
@@ -435,6 +503,7 @@
       chart.setBarSpace(7);
 
       await Promise.all([loadDrawings(), loadTrades(), loadNote(), loadSession()]);
+      applyIndicators();
     } catch (e) {
       toast(e.message, true);
     } finally {
@@ -775,6 +844,7 @@
   }
 
   function bindUI() {
+    $('btnInd').onclick = openIndModal;
     $('btnFav').onclick = () => {
       if (isMobile()) { toggleDrawer('left'); return; }
       if (S.ui.focus) toggleFocus();
@@ -2038,6 +2108,8 @@
       if (sc && SCALES[sc]) { S.scale = sc; $('scaleSel').value = sc; }
       const cd = localStorage.getItem('nk.candle');
       if (cd === 'hollow' || cd === 'solid') S.candle = cd;
+      const ind = JSON.parse(localStorage.getItem('nk.ind') || 'null');
+      if (ind && typeof ind === 'object') S.ind = Object.assign({}, S.ind, ind);
       const ui = JSON.parse(localStorage.getItem('nk.ui') || 'null');
       if (ui) { S.ui.left = !!ui.left; S.ui.right = !!ui.right; }
       else if (localStorage.getItem('nk.leftHidden') === '1') S.ui.left = true;
