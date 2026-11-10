@@ -155,9 +155,14 @@
 
   let indState = { ma: null, macd: null };
 
+  function hasIndicator(paneId, name) {
+    try { return !!chart.getIndicatorByPaneId(paneId, name); } catch (_) { return false; }
+  }
+
   function removeIndicators() {
-    try { if (indState.ma) chart.removeIndicator(indState.ma.paneId, indState.ma.name); } catch (_) { /* 忽略 */ }
-    try { if (indState.macd) chart.removeIndicator(indState.macd.paneId, indState.macd.name); } catch (_) { /* 忽略 */ }
+    try { if (hasIndicator('candle_pane', 'MA')) chart.removeIndicator('candle_pane', 'MA'); } catch (_) { /* 忽略 */ }
+    try { if (hasIndicator('candle_pane', 'EMA')) chart.removeIndicator('candle_pane', 'EMA'); } catch (_) { /* 忽略 */ }
+    try { if (hasIndicator('macd_pane', 'MACD')) chart.removeIndicator('macd_pane', 'MACD'); } catch (_) { /* 忽略 */ }
     indState = { ma: null, macd: null };
   }
 
@@ -170,13 +175,17 @@
       const n = Math.max(1, Math.min(4, Number(ind.maCount) || 4));
       const params = (ind.mas || []).slice(0, n).map((x) => Number(x) || 10);
       try {
-        const paneId = chart.createIndicator(ind.maType, false, { id: 'candle_pane' }, { calcParams: params });
+        const paneId = chart.createIndicator(ind.maType, false, { id: 'candle_pane' });
+        const r = chart.overrideIndicator({ name: ind.maType, calcParams: params }, 'candle_pane');
+        if (r && r.catch) r.catch(() => {});
         indState.ma = { paneId, name: ind.maType };
       } catch (e) { console.warn('均线加载失败', e); }
     }
     if (ind.macd) {
       try {
-        const paneId = chart.createIndicator('MACD', false, { id: 'macd_pane', height: 90 }, { calcParams: (ind.macdParams || [12, 26, 9]).map(Number) });
+        const paneId = chart.createIndicator('MACD', false, { id: 'macd_pane', height: 90 });
+        const r = chart.overrideIndicator({ name: 'MACD', calcParams: (ind.macdParams || [12, 26, 9]).map(Number) }, 'macd_pane');
+        if (r && r.catch) r.catch(() => {});
         indState.macd = { paneId, name: 'MACD' };
       } catch (e) { console.warn('MACD 加载失败', e); }
     }
