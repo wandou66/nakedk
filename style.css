@@ -84,6 +84,14 @@ button.block { width: 100%; }
 .sel { padding: 3px 6px; font-size: 12px; }
 .acts { display: flex; gap: 4px; align-items: center; }
 .ver { font-size: 9px; color: var(--muted); margin-left: 4px; align-self: center; }
+.xhair-pct {
+  position: fixed; z-index: 70; pointer-events: none;
+  padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 600;
+  background: rgba(20, 20, 20, .9); color: #fff; border: 1px solid rgba(255,255,255,.15);
+}
+.xhair-pct.up { color: #26a69a; }
+.xhair-pct.down { color: #ef5350; }
+.xhair-pct.hidden { display: none; }
 
 /* ------------------------------- 主体 -------------------------------- */
 .main { flex: 1 1 auto; display: flex; min-height: 0; }

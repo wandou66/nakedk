@@ -332,6 +332,15 @@
     }
 
     if (p === '/api/library') {
+      if (method === 'DELETE') {
+        let n = 0;
+        for (const k of LS.keys()) {
+          if (!/^(draw|trade|note)\|/.test(k)) continue;
+          LS.del(k);
+          n++;
+        }
+        return { ok: true, deleted: n };
+      }
       const map = new Map();
       for (const k of LS.keys()) {
         const kind = k.startsWith('draw|') ? 'draw' : k.startsWith('trade|') ? 'trade' : null;

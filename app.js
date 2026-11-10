@@ -515,6 +515,7 @@
         applySlice();
         renderReplayInfo();
         renderPos();
+        renderReplayMarkers();
         await Promise.all([loadDrawings(), loadTrades(), loadNote(), loadSession()]);
         applyIndicators();
         return;
@@ -864,8 +865,10 @@
           },
         },
       });
+      chart.removeOverlay({ groupId: 'rp' });
     } else {
       applyTheme(S.theme);
+      if (S.replay.active) renderReplayMarkers();
     }
     applyUI();
   }
@@ -1015,13 +1018,58 @@
     return (t.exitPrice - t.entryPrice) * t.qty * dir - (Number(t.fee) || 0);
   }
 
+  function practiceStats() {
+    const st = R();
+    const live = st.active && st.bars.length;
+    const list = live
+      ? st.closed.map((t) => ({ pnl: Number(t.pnl) || 0 }))
+      : S.trades.filter((t) => pnlOf(t) != null).map((t) => ({ pnl: pnlOf(t) }));
+    const capital = live ? (Number(st.capital) || 10000) : 10000;
+    const realized = list.reduce((s, t) => s + t.pnl, 0);
+    let eq = capital;
+    let peak = capital;
+    let maxDD = 0;
+    for (const t of list) {
+      eq += t.pnl;
+      if (eq > peak) peak = eq;
+      const dd = peak - eq;
+      if (dd > maxDD) maxDD = dd;
+    }
+    let unreal = 0;
+    if (live && st.pos) {
+      const bar = st.bars[st.idx];
+      if (bar) unreal = (bar.close - st.pos.avg) * st.pos.qty * st.pos.side;
+    }
+    const total = realized + unreal;
+    const wins = list.filter((t) => t.pnl > 0);
+    const losses = list.filter((t) => t.pnl < 0);
+    const grossWin = wins.reduce((s, t) => s + t.pnl, 0);
+    const grossLoss = Math.abs(losses.reduce((s, t) => s + t.pnl, 0));
+    return {
+      live, n: list.length, capital, realized, unreal, total,
+      ret: (total / capital) * 100,
+      maxDD, ddPct: (maxDD / capital) * 100,
+      winRate: list.length ? (wins.length / list.length) * 100 : 0,
+      pf: grossLoss > 0 ? grossWin / grossLoss : (grossWin > 0 ? 99 : 0),
+      avgWin: wins.length ? grossWin / wins.length : 0,
+      avgLoss: losses.length ? grossLoss / losses.length : 0,
+    };
+  }
+
   function renderTradeStats() {
-    const done = S.trades.filter((t) => pnlOf(t) != null);
-    const total = done.reduce((s, t) => s + pnlOf(t), 0);
-    const wins = done.filter((t) => pnlOf(t) > 0).length;
-    $('tradeStats').innerHTML =
-      '<div class="stat"><div class="k">已平仓盈亏</div><div class="v ' + (total >= 0 ? 'pos' : 'neg') + '">' + (total >= 0 ? '+' : '') + fmtNum(total) + '</div></div>' +
-      '<div class="stat"><div class="k">胜率 / 笔数</div><div class="v">' + (done.length ? Math.round((wins / done.length) * 100) : 0) + '% · ' + done.length + '</div></div>';
+    const s = practiceStats();
+    const box = $('tradeStats');
+    if (!box) return;
+    const cls = (v) => (v >= 0 ? 'pos' : 'neg');
+    const sign = (v) => (v >= 0 ? '+' : '') + fmtNum(v, 2);
+    box.innerHTML =
+      '<div class="stat"><div class="k">' + (s.live ? '本次盈亏' : '历史盈亏') + '</div><div class="v ' + cls(s.total) + '">' + sign(s.total) + '</div></div>' +
+      '<div class="stat"><div class="k">收益率</div><div class="v ' + cls(s.ret) + '">' + sign(s.ret) + '%</div></div>' +
+      '<div class="stat"><div class="k">最大回撤</div><div class="v neg">' + (s.maxDD > 0 ? '-' + fmtNum(s.maxDD, 2) : '0.00') + '</div><div class="k">' + fmtNum(s.ddPct, 2) + '%</div></div>' +
+      '<div class="stat"><div class="k">胜率</div><div class="v">' + Math.round(s.winRate) + '%</div><div class="k">' + s.n + ' 笔</div></div>' +
+      '<div class="stat"><div class="k">盈亏比</div><div class="v">' + (s.pf >= 99 ? '—' : fmtNum(s.pf, 2)) + '</div></div>' +
+      '<div class="stat"><div class="k">均盈 / 均亏</div><div class="v" style="font-size:12px">' + fmtNum(s.avgWin, 0) + ' / ' + fmtNum(s.avgLoss, 0) + '</div></div>' +
+      (s.live ? '<div class="stat" style="grid-column:1 / -1"><div class="k">权益</div><div class="v">' + fmtNum(s.capital + s.total, 2) + ' <span style="font-size:10px;color:var(--muted)">本金 ' + fmtNum(s.capital, 0) + '</span></div></div>' : '');
   }
 
   function renderTrades() {
@@ -1408,6 +1456,33 @@
     }
   }
 
+  function bindCrosshairPct() {
+    chart.subscribeAction('onCrosshairChange', (data) => {
+      const st = R();
+      const el = $('xhairPct');
+      if (!el) return;
+      if (!st.active || !data || !data.crosshair || data.crosshair.paneId !== 'candle_pane') {
+        el.classList.add('hidden');
+        return;
+      }
+      const bar = st.bars[st.idx];
+      if (!bar) { el.classList.add('hidden'); return; }
+      let price = null;
+      try {
+        const res = chart.convertFromPixel([{ x: data.crosshair.x, y: data.crosshair.y }], 'candle_pane');
+        const p0 = Array.isArray(res) ? res[0] : res;
+        if (p0) price = typeof p0.value === 'number' ? p0.value : (typeof p0.price === 'number' ? p0.price : null);
+      } catch (_) { /* 忽略 */ }
+      if (price == null || !isFinite(price)) { el.classList.add('hidden'); return; }
+      const pct = ((price - bar.close) / bar.close) * 100;
+      const host = $('chart').getBoundingClientRect();
+      el.textContent = (pct >= 0 ? '+' : '') + pct.toFixed(2) + '%';
+      el.className = 'xhair-pct ' + (pct >= 0 ? 'up' : 'down');
+      el.style.left = Math.round(host.left + data.crosshair.x + 14) + 'px';
+      el.style.top = Math.round(host.top + data.crosshair.y - 12) + 'px';
+    });
+  }
+
   function bindReplay() {
     $('btnReplay').onclick = pickStartDate;
     $('rbPrev').onclick = () => {
@@ -1502,6 +1577,7 @@
     const el = $('posCard');
     const chip = $('rbPosChip');
     renderReplayInfo();
+    renderTradeStats();
     if (!st.active) {
       el.innerHTML = '<span>空仓</span>';
       if (chip) chip.textContent = '';
@@ -1566,7 +1642,7 @@
   function renderReplayMarkers() {
     const st = R();
     chart.removeOverlay({ groupId: 'rp' });
-    if (!st.active || !st.bars.length) return;
+    if (S.ui.focus || !st.active || !st.bars.length) return;
     const cur = st.bars[st.idx];
     const byTs = new Map();
     for (const b of st.bars) byTs.set(b.timestamp, b);
@@ -1815,11 +1891,10 @@
     const pnl = st.closed.reduce((s, t) => s + t.pnl, 0);
     openModal(
       '<h3>退出回放？</h3>' +
-      '<p class="hint">本次已平仓 ' + st.closed.length + ' 笔，合计 ' + (pnl >= 0 ? '+' : '') + fmtNum(pnl, 2) + ' USDT。</p>' +
+      '<p class="hint">本次已平仓 ' + st.closed.length + ' 笔，合计 ' + (pnl >= 0 ? '+' : '') + fmtNum(pnl, 2) + ' USDT。存档后可以从「继续上次回放」接着练，统计会在右侧实时累加。</p>' +
       '<div class="presetrow">' +
-      '<button id="rpSave" class="primary">保存到交易笔记并退出</button>' +
-      '<button id="rpKeep">保留进度</button>' +
-      '<button id="rpDrop">放弃本次</button>' +
+      '<button id="rpKeep" class="primary">存档并退出</button>' +
+      '<button id="rpDrop">直接退出</button>' +
       '</div>'
     );
     $('rpDrop').onclick = () => { closeModal(); finishExit(); };
@@ -1827,13 +1902,7 @@
       const ok = await saveSession();
       closeModal();
       finishExit();
-      toast(ok ? '进度已保存' : '进度保存失败', !ok);
-    };
-    $('rpSave').onclick = async () => {
-      saveReplayTrades();
-      await deleteSession();
-      closeModal();
-      finishExit();
+      toast(ok ? '已存档' : '存档失败', !ok);
     };
   }
 
@@ -2004,8 +2073,20 @@
           '<span class="cnts">' + esc((x.meta.tf || '') + ' · ' + (x.meta.src || '')) + '</span>' +
           '<span class="cnts">标注 ' + x.drawings + ' · 交易 ' + x.trades + '</span>' +
           '<span class="dt">' + (x.updatedAt ? new Date(x.updatedAt).toLocaleString('zh-CN', { hour12: false }) : '') + '</span></div>'
-        ).join('') : '<div class="hint">还没有任何标注或交易。</div>')
+        ).join('') : '<div class="hint">还没有任何标注或交易。</div>') +
+        '<div class="presetrow" style="margin-top:8px"><button id="libClear">清空旧记录（保留回放存档）</button></div>'
       );
+      $('libClear').onclick = async () => {
+        if (!confirm('确定删除全部标注、交易记录和笔记？回放存档会保留。')) return;
+        try {
+          const r = await api('/api/library', { method: 'DELETE' });
+          closeModal();
+          S.drawings = []; S.trades = []; S.note = '';
+          chart.removeOverlay();
+          renderTradeStats();
+          toast('已清理 ' + (r.deleted || 0) + ' 条记录');
+        } catch (e) { toast('清理失败: ' + e.message, true); }
+      };
       document.querySelectorAll('.librow').forEach((row) => {
         row.onclick = () => {
           const x = items[Number(row.dataset.i)];
@@ -2134,6 +2215,7 @@
     bindTradeForm();
     bindNote();
     bindReplay();
+    bindCrosshairPct();
     chart.subscribeAction('onScroll', scheduleBackwardLoad);
     bindReplayDrag();
 
