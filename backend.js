@@ -331,6 +331,17 @@
       return { ok: true };
     }
 
+    if (p === '/api/sessions') {
+      const items = LS.keys()
+        .filter((k) => k.startsWith('replay|'))
+        .map((k) => {
+          const rec = LS.get(k, {}) || {};
+          return { key: k.slice(7), meta: rec.meta || {}, data: rec.data || null, updatedAt: rec.updatedAt || 0 };
+        })
+        .sort((a, b) => b.updatedAt - a.updatedAt);
+      return { items };
+    }
+
     if (p === '/api/library') {
       if (method === 'DELETE') {
         let n = 0;

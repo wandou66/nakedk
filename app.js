@@ -494,7 +494,7 @@
     $('curName').textContent = it.coin;
     $('curMeta').textContent = it.label.replace(it.coin, '').trim() + ' · ' + it.symbol;
     renderWatchlist();
-    loadAll();
+    return loadAll();
   }
 
   /* ------------------------------ 行情加载 ------------------------------ */
@@ -1025,35 +1025,74 @@
       ? st.closed.map((t) => ({ pnl: Number(t.pnl) || 0 }))
       : S.trades.filter((t) => pnlOf(t) != null).map((t) => ({ pnl: pnlOf(t) }));
     const capital = live ? (Number(st.capital) || 10000) : 10000;
-    const realized = list.reduce((s, t) => s + t.pnl, 0);
+    const series = [capital];
     let eq = capital;
-    let peak = capital;
-    let maxDD = 0;
-    for (const t of list) {
-      eq += t.pnl;
-      if (eq > peak) peak = eq;
-      const dd = peak - eq;
-      if (dd > maxDD) maxDD = dd;
-    }
+    for (const t of list) { eq += t.pnl; series.push(eq); }
     let unreal = 0;
     if (live && st.pos) {
       const bar = st.bars[st.idx];
       if (bar) unreal = (bar.close - st.pos.avg) * st.pos.qty * st.pos.side;
     }
-    const total = realized + unreal;
+    const nowEq = eq + unreal;
+    series.push(nowEq);
+    let peak = series[0];
+    let maxDD = 0;
+    let ddPct = 0;
+    for (const v of series) {
+      if (v > peak) peak = v;
+      const dd = peak - v;
+      const pct = peak > 0 ? (dd / peak) * 100 : 0;
+      if (dd > maxDD) { maxDD = dd; ddPct = pct; }
+    }
     const wins = list.filter((t) => t.pnl > 0);
     const losses = list.filter((t) => t.pnl < 0);
     const grossWin = wins.reduce((s, t) => s + t.pnl, 0);
     const grossLoss = Math.abs(losses.reduce((s, t) => s + t.pnl, 0));
     return {
-      live, n: list.length, capital, realized, unreal, total,
-      ret: (total / capital) * 100,
-      maxDD, ddPct: (maxDD / capital) * 100,
+      live, n: list.length, capital, realized: eq - capital, unreal,
+      total: nowEq - capital, ret: ((nowEq - capital) / capital) * 100,
+      maxDD, ddPct, series,
       winRate: list.length ? (wins.length / list.length) * 100 : 0,
       pf: grossLoss > 0 ? grossWin / grossLoss : (grossWin > 0 ? 99 : 0),
       avgWin: wins.length ? grossWin / wins.length : 0,
       avgLoss: losses.length ? grossLoss / losses.length : 0,
     };
+  }
+
+  function drawEqChart(cv, series, capital) {
+    const dpr = window.devicePixelRatio || 1;
+    const w = cv.clientWidth || 260;
+    const h = 90;
+    cv.width = Math.round(w * dpr);
+    cv.height = Math.round(h * dpr);
+    const ctx = cv.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, w, h);
+    const min = Math.min(...series, capital);
+    const max = Math.max(...series, capital);
+    const span = max - min || 1;
+    const pad = 6;
+    const y = (v) => h - pad - ((v - min) / span) * (h - pad * 2);
+    const x = (i) => (series.length <= 1 ? 0 : (i / (series.length - 1)) * w);
+    ctx.strokeStyle = 'rgba(120,120,120,.35)';
+    ctx.setLineDash([3, 3]);
+    ctx.beginPath();
+    ctx.moveTo(0, y(capital));
+    ctx.lineTo(w, y(capital));
+    ctx.stroke();
+    ctx.setLineDash([]);
+    const up = series[series.length - 1] >= capital;
+    const color = up ? '#26a69a' : '#ef5350';
+    ctx.beginPath();
+    series.forEach((v, i) => { const px = x(i); const py = y(v); if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py); });
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.6;
+    ctx.stroke();
+    ctx.lineTo(w, h);
+    ctx.lineTo(0, h);
+    ctx.closePath();
+    ctx.fillStyle = up ? 'rgba(38,166,154,.16)' : 'rgba(239,83,80,.16)';
+    ctx.fill();
   }
 
   function renderTradeStats() {
@@ -1069,7 +1108,10 @@
       '<div class="stat"><div class="k">胜率</div><div class="v">' + Math.round(s.winRate) + '%</div><div class="k">' + s.n + ' 笔</div></div>' +
       '<div class="stat"><div class="k">盈亏比</div><div class="v">' + (s.pf >= 99 ? '—' : fmtNum(s.pf, 2)) + '</div></div>' +
       '<div class="stat"><div class="k">均盈 / 均亏</div><div class="v" style="font-size:12px">' + fmtNum(s.avgWin, 0) + ' / ' + fmtNum(s.avgLoss, 0) + '</div></div>' +
+      '<div class="stat" style="grid-column:1 / -1;padding:4px 6px"><div class="k">权益曲线</div><canvas id="eqChart" style="width:100%;height:90px;display:block"></canvas></div>' +
       (s.live ? '<div class="stat" style="grid-column:1 / -1"><div class="k">权益</div><div class="v">' + fmtNum(s.capital + s.total, 2) + ' <span style="font-size:10px;color:var(--muted)">本金 ' + fmtNum(s.capital, 0) + '</span></div></div>' : '');
+    const cv = $('eqChart');
+    if (cv) drawEqChart(cv, s.series, s.capital);
   }
 
   function renderTrades() {
@@ -2099,6 +2141,106 @@
     finally { busy(false); }
   }
 
+  async function openArchive() {
+    busy(true);
+    try {
+      const j = await api('/api/sessions');
+      const items = j.items || [];
+      openModal(
+        '<h3>回放存档</h3>' +
+        (items.length ? items.map((x, i) => {
+          const d = x.data || {};
+          const pnl = (d.closed || []).reduce((s, t) => s + (Number(t.pnl) || 0), 0);
+          return '<div class="librow" data-i="' + i + '">' +
+            '<span class="nm">' + esc(x.meta.coin || x.meta.symbol || x.key) + '</span>' +
+            '<span class="cnts">' + esc((x.meta.tf || '') + ' · ' + (x.meta.src || '')) + '</span>' +
+            '<span class="cnts">' + (d.anchorTs ? new Date(d.anchorTs).toLocaleString('zh-CN', { hour12: false }) : '') + '</span>' +
+            '<span class="cnts ' + (pnl >= 0 ? 'pos' : 'neg') + '">' + (pnl >= 0 ? '+' : '') + fmtNum(pnl, 2) + '</span>' +
+            '<span class="dt">' + (x.updatedAt ? new Date(x.updatedAt).toLocaleString('zh-CN', { hour12: false }) : '') + '</span></div>';
+        }).join('') : '<p class="hint">还没有存档。回放里点「退出回放 → 存档并退出」就会生成一条。</p>') +
+        '<div class="presetrow" style="margin-top:8px"><button id="arcClear">清空旧记录（保留存档）</button></div>'
+      );
+      document.querySelectorAll('.librow').forEach((row) => {
+        row.onclick = async () => {
+          const x = items[Number(row.dataset.i)];
+          const d = x.data || {};
+          closeModal();
+          const it = {
+            id: [x.meta.src, x.meta.symbol].join(':'),
+            src: x.meta.src, symbol: x.meta.symbol,
+            coin: x.meta.coin || x.meta.symbol, label: x.meta.label || x.meta.coin,
+          };
+          await selectSymbol(it);
+          if (d.tf && d.tf !== S.tf) { S.tf = d.tf; paintTf(); await loadAll(); }
+          S.session = d;
+          await resumeReplay();
+        };
+      });
+      $('arcClear').onclick = async () => {
+        if (!confirm('确定删除全部标注、交易记录和笔记？回放存档会保留。')) return;
+        try {
+          const r = await api('/api/library', { method: 'DELETE' });
+          closeModal();
+          S.drawings = []; S.trades = []; S.note = '';
+          chart.removeOverlay();
+          renderTradeStats();
+          toast('已清理 ' + (r.deleted || 0) + ' 条记录');
+        } catch (e) { toast('清理失败: ' + e.message, true); }
+      };
+    } catch (e) { toast('存档读取失败: ' + e.message, true); }
+    finally { busy(false); }
+  }
+
+  function openBackup() {
+    openModal(
+      '<h3>备份 / 同步</h3>' +
+      '<p class="hint">在线版的数据存在当前浏览器里，换电脑不会自动带过去。导出后在新电脑上导入即可；回放存档也包含在内。</p>' +
+      '<div class="presetrow"><button id="bkExport" class="primary">导出备份</button><button id="bkImport">导入备份</button></div>' +
+      '<input type="file" id="bkFile" accept=".json,application/json" class="hidden">' +
+      '<div class="presetrow"><button id="bkClear">清空旧记录（保留存档）</button></div>'
+    );
+    $('bkExport').onclick = backupAll;
+    $('bkImport').onclick = () => $('bkFile').click();
+    $('bkFile').onchange = async () => {
+      const f = $('bkFile').files && $('bkFile').files[0];
+      if (!f) return;
+      try {
+        const txt = await f.text();
+        const jj = JSON.parse(txt);
+        const recs = jj.records || [];
+        let n = 0;
+        for (const r of recs) {
+          if (!r || !r.key) continue;
+          const key = r.key;
+          if (key.startsWith('draw|')) {
+            await api('/api/drawings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: key.slice(5), meta: r.meta || {}, items: r.items || [] }) });
+          } else if (key.startsWith('trade|')) {
+            await api('/api/trades', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: key.slice(6), meta: r.meta || {}, items: r.items || [] }) });
+          } else if (key.startsWith('note|')) {
+            await api('/api/note', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: key.slice(5), meta: r.meta || {}, text: r.text || '' }) });
+          } else if (key.startsWith('replay|')) {
+            await api('/api/session', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: key.slice(7), meta: r.meta || {}, data: r.data || null }) });
+          } else continue;
+          n++;
+        }
+        closeModal();
+        toast('已导入 ' + n + ' 条记录');
+        loadAll();
+      } catch (e) { toast('导入失败: ' + e.message, true); }
+    };
+    $('bkClear').onclick = async () => {
+      if (!confirm('确定删除全部标注、交易记录和笔记？回放存档会保留。')) return;
+      try {
+        const r = await api('/api/library', { method: 'DELETE' });
+        closeModal();
+        S.drawings = []; S.trades = []; S.note = '';
+        chart.removeOverlay();
+        renderTradeStats();
+        toast('已清理 ' + (r.deleted || 0) + ' 条记录');
+      } catch (e) { toast('清理失败: ' + e.message, true); }
+    };
+  }
+
   function exportMarkdown() {
     if (!S.trades.length) return toast('当前品种没有交易记录', true);
     const lines = ['# ' + S.coin + ' ' + (S.src.includes('perp') ? '永续' : '现货') + ' 交易复盘', '', '标的：`' + S.symbol + '`　来源：' + S.src, ''];
@@ -2176,8 +2318,8 @@
 
   function bind() {
     document.querySelectorAll('.tabs button').forEach((b) => { b.onclick = () => setTab(b.dataset.tab); });
-    $('btnLibrary').onclick = openLibrary;
-    $('btnBackup').onclick = backupAll;
+    $('btnLibrary').onclick = openArchive;
+    $('btnBackup').onclick = openBackup;
     $('btnTheme').onclick = () => applyTheme(S.theme === 'dark' ? 'light' : 'dark');
     $('btnCandle').onclick = () => {
       S.candle = S.candle === 'hollow' ? 'solid' : 'hollow';
