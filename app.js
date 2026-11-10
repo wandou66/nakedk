@@ -1789,18 +1789,19 @@
     stopPlay();
     busy(true);
     try {
-      await loadReplayWindow(s.anchorTs || Date.now());
-      st.capital = s.capital || 10000;
+      if (s.tf && s.tf !== S.tf) { S.tf = s.tf; paintTf(); }
+      await loadReplayWindow(Number(s.anchorTs) || Date.now());
+      st.capital = Number(s.capital) || 10000;
       st.pos = s.pos || null;
-      st.closed = s.closed || [];
-      st.orders = s.orders || [];
+      st.closed = Array.isArray(s.closed) ? s.closed : [];
+      st.orders = Array.isArray(s.orders) ? s.orders : [];
       st.active = true;
       showReplayUI(true);
       S.prec = precision(st.bars[st.idx].close);
       chart.setPriceVolumePrecision(S.prec, 0);
       applySlice();
       renderReplayInfo(); renderPos();
-      toast('已恢复上次进度：' + fmtTime(st.bars[st.idx].timestamp));
+      toast('已恢复：' + fmtTime(st.bars[st.idx].timestamp) + ' · 权益 ' + fmtNum(st.capital, 0));
     } finally {
       busy(false);
     }
@@ -1822,7 +1823,12 @@
       '</div>'
     );
     $('rpDrop').onclick = () => { closeModal(); finishExit(); };
-    $('rpKeep').onclick = () => { saveSession(); closeModal(); finishExit(); toast('进度已保存'); };
+    $('rpKeep').onclick = async () => {
+      const ok = await saveSession();
+      closeModal();
+      finishExit();
+      toast(ok ? '进度已保存' : '进度保存失败', !ok);
+    };
     $('rpSave').onclick = async () => {
       saveReplayTrades();
       await deleteSession();
@@ -1965,20 +1971,23 @@
   async function saveSession() {
     const st = R();
     if (!st.active || !st.bars.length) return;
+    const payload = {
+      anchorTs: st.bars[st.idx].timestamp,
+      pos: st.pos, closed: st.closed, orders: st.orders,
+      capital: st.capital, tf: S.tf, updatedAt: Date.now(),
+    };
     try {
       await api('/api/session', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           key: drawKey(),
-          meta: { src: S.src, symbol: S.symbol, coin: S.coin, tf: S.tf },
-          data: {
-            anchorTs: st.bars[st.idx].timestamp,
-            pos: st.pos, closed: st.closed, orders: st.orders,
-            capital: st.capital, updatedAt: Date.now(),
-          },
+          meta: { src: S.src, symbol: S.symbol, coin: S.coin, label: S.label, tf: S.tf },
+          data: payload,
         }),
       });
-    } catch (_) { /* 忽略 */ }
+      S.session = payload;
+      return true;
+    } catch (e) { toast('进度保存失败: ' + e.message, true); return false; }
   }
 
   /* ------------------------------ 笔记库 / 导出 ------------------------- */
