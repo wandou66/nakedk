@@ -1461,7 +1461,7 @@
       const st = R();
       const el = $('xhairPct');
       if (!el) return;
-      if (!st.active || !data || !data.crosshair || data.crosshair.paneId !== 'candle_pane') {
+      if (!st.active || !data || data.paneId !== 'candle_pane' || !data.kLineData) {
         el.classList.add('hidden');
         return;
       }
@@ -1469,7 +1469,7 @@
       if (!bar) { el.classList.add('hidden'); return; }
       let price = null;
       try {
-        const res = chart.convertFromPixel([{ x: data.crosshair.x, y: data.crosshair.y }], 'candle_pane');
+        const res = chart.convertFromPixel([{ x: data.x, y: data.y }], 'candle_pane');
         const p0 = Array.isArray(res) ? res[0] : res;
         if (p0) price = typeof p0.value === 'number' ? p0.value : (typeof p0.price === 'number' ? p0.price : null);
       } catch (_) { /* 忽略 */ }
@@ -1478,8 +1478,8 @@
       const host = $('chart').getBoundingClientRect();
       el.textContent = (pct >= 0 ? '+' : '') + pct.toFixed(2) + '%';
       el.className = 'xhair-pct ' + (pct >= 0 ? 'up' : 'down');
-      el.style.left = Math.round(host.left + data.crosshair.x + 14) + 'px';
-      el.style.top = Math.round(host.top + data.crosshair.y - 12) + 'px';
+      el.style.left = Math.round(host.left + data.x + 14) + 'px';
+      el.style.top = Math.round(host.top + data.y - 12) + 'px';
     });
   }
 
