@@ -267,6 +267,7 @@ label input, label select { width: 100%; }
 .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 4px; }
 .librow { display: flex; gap: 8px; align-items: center; padding: 7px 9px; background: var(--panel2); border: 1px solid var(--border); border-radius: var(--radius); cursor: pointer; }
 .librow:hover { border-color: var(--accent); }
+.librow .mini.del { color: #ef5350; border-color: rgba(239,83,80,.4); padding: 2px 7px; margin-left: auto; }
 .librow .nm { font-weight: 600; }
 .librow .dt { color: var(--muted); font-size: 10px; margin-left: auto; }
 .librow .cnts { color: var(--muted); font-size: 10px; }

@@ -332,6 +332,15 @@
     }
 
     if (p === '/api/sessions') {
+      if (method === 'DELETE') {
+        let n = 0;
+        for (const k of LS.keys()) {
+          if (!k.startsWith('replay|')) continue;
+          LS.del(k);
+          n++;
+        }
+        return { ok: true, deleted: n };
+      }
       const items = LS.keys()
         .filter((k) => k.startsWith('replay|'))
         .map((k) => {

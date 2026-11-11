@@ -2156,11 +2156,28 @@
             '<span class="cnts">' + esc((x.meta.tf || '') + ' · ' + (x.meta.src || '')) + '</span>' +
             '<span class="cnts">' + (d.anchorTs ? new Date(d.anchorTs).toLocaleString('zh-CN', { hour12: false }) : '') + '</span>' +
             '<span class="cnts ' + (pnl >= 0 ? 'pos' : 'neg') + '">' + (pnl >= 0 ? '+' : '') + fmtNum(pnl, 2) + '</span>' +
-            '<span class="dt">' + (x.updatedAt ? new Date(x.updatedAt).toLocaleString('zh-CN', { hour12: false }) : '') + '</span></div>';
+            '<span class="dt">' + (x.updatedAt ? new Date(x.updatedAt).toLocaleString('zh-CN', { hour12: false }) : '') + '</span>' +
+            '<button class="mini del" data-del="' + i + '" title="删除这条存档">×</button></div>';
         }).join('') : '<p class="hint">还没有存档。回放里点「退出回放 → 存档并退出」就会生成一条。</p>') +
-        '<div class="presetrow" style="margin-top:8px"><button id="arcClear">清空旧记录（保留存档）</button></div>'
+        '<div class="presetrow" style="margin-top:8px"><button id="arcClear">清空旧记录（保留存档）</button>' +
+        (items.length ? '<button id="arcClearAll">清空全部存档</button>' : '') + '</div>'
       );
       document.querySelectorAll('.librow').forEach((row) => {
+        const x = items[Number(row.dataset.i)];
+        const delBtn = row.querySelector('[data-del]');
+        if (delBtn) {
+          delBtn.onclick = async (ev) => {
+            ev.stopPropagation();
+            if (!confirm('删除这条存档？')) return;
+            try {
+              await api('/api/session?key=' + encodeURIComponent(x.key), { method: 'DELETE' });
+              row.remove();
+              if (S.session && S.session.anchorTs === (x.data && x.data.anchorTs)) S.session = null;
+              toast('已删除');
+              if (!document.querySelector('.librow')) openArchive();
+            } catch (e) { toast('删除失败: ' + e.message, true); }
+          };
+        }
         row.onclick = async () => {
           const x = items[Number(row.dataset.i)];
           const d = x.data || {};
@@ -2187,6 +2204,18 @@
           toast('已清理 ' + (r.deleted || 0) + ' 条记录');
         } catch (e) { toast('清理失败: ' + e.message, true); }
       };
+      const clearAll = $('arcClearAll');
+      if (clearAll) {
+        clearAll.onclick = async () => {
+          if (!confirm('删除全部回放存档？标注、交易和笔记不受影响。')) return;
+          try {
+            const r = await api('/api/sessions', { method: 'DELETE' });
+            S.session = null;
+            openArchive();
+            toast('已清空 ' + (r.deleted || 0) + ' 条存档');
+          } catch (e) { toast('清空失败: ' + e.message, true); }
+        };
+      }
     } catch (e) { toast('存档读取失败: ' + e.message, true); }
     finally { busy(false); }
   }
