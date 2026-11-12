@@ -11,7 +11,7 @@
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="icon" href="./icon-192.png">
 <link rel="apple-touch-icon" href="./icon-192.png">
-<link rel="stylesheet" href="./style.css?v=55">
+<link rel="stylesheet" href="./style.css?v=56">
 </head>
 <body data-theme="dark">
 
@@ -37,6 +37,7 @@
   </select>
   <button id="btnCandle" class="ghost" title="K线样式：实心 / 空心">实K</button>
   <button id="btnInd" class="ghost" title="指标设置">指标</button>
+  <button id="btnFocus" class="ghost" title="专注模式（双击图表也可以）">专注</button>
 
   <div class="acts">
     <button id="btnReplay" class="ghost">回放</button>
@@ -46,7 +47,7 @@
     <button id="btnStar" class="icon" title="加入自选">☆</button>
     <button id="btnLibrary" class="ghost">存档</button>
     <button id="btnBackup" class="ghost">备份</button>
-    <span class="ver" id="verBadge">v55</span>
+    <span class="ver" id="verBadge">v56</span>
   </div>
 </header>
 
@@ -154,7 +155,7 @@
 
 <script src="./vendor/klinecharts.min.js"></script>
 <script src="./backend.js"></script>
-<script src="./app.js?v=55"></script>
+<script src="./app.js?v=56"></script>
 <script>
   if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) {
     window.addEventListener('load', function () {

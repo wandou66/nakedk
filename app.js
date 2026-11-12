@@ -9,7 +9,7 @@
     id: null, src: 'binance-perp', symbol: null, coin: '', label: '', tf: '15m',
     bars: [], prec: 4, scale: 'linear', theme: 'dark', unit: 'U', candle: 'solid',
     ind: {
-      maType: 'MA', showMa: true, macd: true, macdParams: [12, 26, 9],
+      maType: 'MA', showMa: true, macd: true, macdHistOnly: false, macdParams: [12, 26, 9],
       lines: [{ v: 10, on: true }, { v: 55, on: true }, { v: 120, on: true }, { v: 200, on: true }],
     },
     trades: [], watchlist: { groups: [] }, drawings: [], tool: null, selectedId: null,
@@ -156,6 +156,51 @@
 
   /* ------------------------------ 指标 ------------------------------ */
 
+  try {
+    klinecharts.registerIndicator({
+      name: 'NKMACD',
+      shortName: 'MACD',
+      calcParams: [12, 26, 9],
+      figures: [{
+        key: 'macd', title: 'MACD: ', type: 'bar', baseValue: 0,
+        styles(data, indicator, defaultStyles) {
+          const cur = data && data.current && data.current.indicatorData ? data.current.indicatorData.macd : 0;
+          const bars = (defaultStyles && defaultStyles.bars) || [];
+          const up = (bars[0] && bars[0].upColor) || '#26a69a';
+          const down = (bars[0] && bars[0].downColor) || '#ef5350';
+          return { color: cur >= 0 ? up : down };
+        },
+      }],
+      calc(list, indicator) {
+        const params = indicator.calcParams || [12, 26, 9];
+        const sp = Number(params[0]) || 12;
+        const lp = Number(params[1]) || 26;
+        const gp = Number(params[2]) || 9;
+        let emaS = 0;
+        let emaL = 0;
+        let dea = 0;
+        let sum = 0;
+        let difSum = 0;
+        return list.map((k, i) => {
+          const c = k.close;
+          sum += c;
+          if (i >= sp - 1) emaS = i > sp - 1 ? (2 * c + (sp - 1) * emaS) / (sp + 1) : sum / sp;
+          if (i >= lp - 1) emaL = i > lp - 1 ? (2 * c + (lp - 1) * emaL) / (lp + 1) : sum / lp;
+          const out = {};
+          if (i >= lp - 1) {
+            const dif = emaS - emaL;
+            difSum += dif;
+            if (i >= lp + gp - 2) {
+              dea = i > lp + gp - 2 ? (2 * dif + (gp - 1) * dea) / (gp + 1) : difSum / gp;
+              out.macd = 2 * (dif - dea);
+            }
+          }
+          return out;
+        });
+      },
+    });
+  } catch (e) { console.warn('MACD 注册失败', e); }
+
   let indState = { ma: null, macd: null };
 
   function hasIndicator(paneId, name) {
@@ -166,6 +211,7 @@
     try { if (hasIndicator('candle_pane', 'MA')) chart.removeIndicator('candle_pane', 'MA'); } catch (_) { /* 忽略 */ }
     try { if (hasIndicator('candle_pane', 'EMA')) chart.removeIndicator('candle_pane', 'EMA'); } catch (_) { /* 忽略 */ }
     try { if (hasIndicator('macd_pane', 'MACD')) chart.removeIndicator('macd_pane', 'MACD'); } catch (_) { /* 忽略 */ }
+    try { if (hasIndicator('macd_pane', 'NKMACD')) chart.removeIndicator('macd_pane', 'NKMACD'); } catch (_) { /* 忽略 */ }
     indState = { ma: null, macd: null };
   }
 
@@ -181,6 +227,7 @@
     if (out.maType === 'none') { out.maType = 'MA'; out.showMa = false; }
     if (!out.maType) out.maType = 'MA';
     if (typeof out.showMa !== 'boolean') out.showMa = true;
+    if (typeof out.macdHistOnly !== 'boolean') out.macdHistOnly = false;
     return out;
   }
 
@@ -200,10 +247,11 @@
     }
     if (ind.macd) {
       try {
-        const paneId = chart.createIndicator('MACD', false, { id: 'macd_pane', height: 90 });
-        const r = chart.overrideIndicator({ name: 'MACD', calcParams: (ind.macdParams || [12, 26, 9]).map(Number) }, 'macd_pane');
+        const macdName = ind.macdHistOnly ? 'NKMACD' : 'MACD';
+        const paneId = chart.createIndicator(macdName, false, { id: 'macd_pane', height: 90 });
+        const r = chart.overrideIndicator({ name: macdName, calcParams: (ind.macdParams || [12, 26, 9]).map(Number) }, 'macd_pane');
         if (r && r.catch) r.catch(() => {});
-        indState.macd = { paneId, name: 'MACD' };
+        indState.macd = { paneId, name: macdName };
       } catch (e) { console.warn('MACD 加载失败', e); }
     }
   }
@@ -222,6 +270,7 @@
       ).join('') +
       '</div>' +
       '<div class="indrow"><label style="display:flex;gap:6px;align-items:center;width:auto"><input type="checkbox" id="indMacd"' + (ind.macd ? ' checked' : '') + '> 显示 MACD</label>' +
+      '<label style="display:flex;gap:6px;align-items:center;font-size:12px"><input type="checkbox" id="indHist"' + (ind.macdHistOnly ? ' checked' : '') + '> 只看柱子</label>' +
       '<input id="indF" type="number" min="1" value="' + (ind.macdParams[0] || 12) + '">' +
       '<input id="indS" type="number" min="1" value="' + (ind.macdParams[1] || 26) + '">' +
       '<input id="indSig" type="number" min="1" value="' + (ind.macdParams[2] || 9) + '"></div>' +
@@ -236,6 +285,7 @@
         on: $('indOn' + i).checked,
       }));
       S.ind.macd = $('indMacd').checked;
+      S.ind.macdHistOnly = $('indHist').checked;
       S.ind.macdParams = [Number($('indF').value) || 12, Number($('indS').value) || 26, Number($('indSig').value) || 9];
       try { localStorage.setItem('nk.ind', JSON.stringify(S.ind)); } catch (_) { /* 忽略 */ }
       applyIndicators();
@@ -875,6 +925,7 @@
 
   function bindUI() {
     $('btnInd').onclick = openIndModal;
+    $('btnFocus').onclick = () => toggleFocus();
     $('btnFav').onclick = () => {
       if (isMobile()) { toggleDrawer('left'); return; }
       if (S.ui.focus) toggleFocus();
@@ -964,17 +1015,18 @@
         btn.style.bottom = 'auto';
       }
     } catch (_) { /* 忽略 */ }
+  }
 
-    // 双击图表空白处 → 专注看 K；再双击或 Esc 退出
-    $('chart').addEventListener('dblclick', (e) => {
+  function bindFocusGestures() {
+    const host = $('chart');
+    if (!host) return;
+    host.addEventListener('dblclick', (e) => {
       if (S.tool) return;
       e.preventDefault();
       toggleFocus();
     }, true);
-
-    // 手机：双击（两次轻点）同样进入/退出专注
     let lastTap = 0, lastX = 0, lastY = 0;
-    $('chart').addEventListener('touchend', (e) => {
+    host.addEventListener('touchend', (e) => {
       if (S.tool || !e.changedTouches || e.changedTouches.length !== 1) return;
       const t = e.changedTouches[0];
       const now = Date.now();
@@ -2387,6 +2439,7 @@
     bindNote();
     bindReplay();
     bindCrosshairPct();
+    bindFocusGestures();
     chart.subscribeAction('onScroll', scheduleBackwardLoad);
     bindReplayDrag();
 
